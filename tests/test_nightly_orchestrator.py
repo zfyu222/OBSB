@@ -71,6 +71,40 @@ class NightlyOrchestratorTests(unittest.TestCase):
             commits = subprocess.run(["git", "-C", str(vault), "rev-list", "--count", "HEAD"], text=True, capture_output=True, check=True)
             self.assertEqual(commits.stdout.strip(), "1")
 
+    def test_validation_error_is_returned_for_one_correction_round(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            vault = self.vault(root)
+            agent = root / "agent.py"
+            agent.write_text(
+                "import json, os\nfrom pathlib import Path\nroot=Path(os.environ['NIGHTLY_VAULT'])\n"
+                "note=root/'Raw'/'fixed.md'\n"
+                "if json.loads(os.environ['NIGHTLY_FEEDBACK']):\n"
+                " note.write_text('---\\ntags: [测试]\\nsummary_final: 完成\\n---\\n完成',encoding='utf-8')\n"
+                "else:\n note.write_text('invalid',encoding='utf-8')\n",
+                encoding="utf-8",
+            )
+            outcome = execute(vault, root / "worktrees", root / "state", f"{sys.executable} {agent}")
+            self.assertEqual(outcome.status, "success")
+            self.assertTrue((vault / "Raw/fixed.md").exists())
+
+    def test_concurrent_untracked_note_blocks_overlapping_apply(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            vault = self.vault(root)
+            agent = root / "agent.py"
+            agent.write_text(
+                "import os\nfrom pathlib import Path\nroot=Path(os.environ['NIGHTLY_VAULT'])\n"
+                "(root/'InBox').mkdir(exist_ok=True)\n"
+                "(root/'InBox'/'same.md').write_text('worktree', encoding='utf-8')\n"
+                "(root.parent.parent/'vault'/'InBox'/'same.md').write_text('formal', encoding='utf-8')\n",
+                encoding="utf-8",
+            )
+            outcome = execute(vault, root / "worktrees", root / "state", f"{sys.executable} {agent}")
+            self.assertEqual(outcome.status, "failed")
+            report = next((vault / "Drived/整理日志").glob("*.md"))
+            self.assertIn("formal vault changed concurrently", report.read_text(encoding="utf-8"))
+
 
 if __name__ == "__main__":
     unittest.main()

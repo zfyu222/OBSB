@@ -1,0 +1,137 @@
+#!/usr/bin/env python3
+"""Drive one reusable OpenCode session for the isolated nightly worktree.
+
+This adapter intentionally never grants permissions.  A missing allow rule is a
+failed nightly run, not an invitation for the scheduler to weaken safeguards.
+"""
+
+from __future__ import annotations
+
+import base64
+import json
+import os
+import sys
+import time
+from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
+
+API = os.environ.get("OPENCODE_API_URL", "http://127.0.0.1:4096/api").rstrip("/")
+TIMEOUT_SECONDS = int(os.environ.get("NIGHTLY_OPENCODE_TIMEOUT_SECONDS", "1800"))
+
+
+def request(method: str, path: str, payload: dict | None = None) -> object:
+    password = os.environ.get("OPENCODE_SERVER_PASSWORD")
+    if not password:
+        raise RuntimeError("OPENCODE_SERVER_PASSWORD is unavailable")
+    username = os.environ.get("OPENCODE_SERVER_USERNAME", "opencode")
+    headers = {"Accept": "application/json"}
+    headers["Authorization"] = "Basic " + base64.b64encode(f"{username}:{password}".encode()).decode()
+    body = None
+    if payload is not None:
+        body = json.dumps(payload, ensure_ascii=False).encode()
+        headers["Content-Type"] = "application/json"
+    try:
+        with urlopen(Request(API + path, data=body, method=method, headers=headers), timeout=30) as response:
+            raw = response.read().decode("utf-8")
+    except HTTPError as exc:
+        raise RuntimeError(f"OpenCode API returned HTTP {exc.code}") from exc
+    except URLError as exc:
+        raise RuntimeError(f"OpenCode API is unavailable: {exc.reason}") from exc
+    return json.loads(raw) if raw else None
+
+
+def payload_data(value: object) -> object:
+    return value.get("data") if isinstance(value, dict) and "data" in value else value
+
+
+def initial_prompt(vault: Path) -> str:
+    return f"""Run the nightly-memory-organization Skill for this one isolated worktree: {vault}.
+
+Never read or edit the formal vault, framework files, Assets, .obsidian, secrets,
+runtime or any path outside this worktree. Read and modify Markdown only under
+{vault}/InBox, {vault}/Raw and {vault}/Drived. Create missing Markdown folders if
+needed. Search before creating notes; preserve URL text and never fetch URLs or
+read attachments. Use the deterministic tools from /workspace/tools with
+--vault {vault} for tags, validation and vault-ops. Organize Inbox conservatively,
+maintain only the Raw candidates in NIGHTLY_CONTEXT_FILE (skip a Raw candidate
+whose diff is already only generated summary fields), and finish by running the
+validator. Explain the semantic result briefly; the external orchestrator will
+validate and apply it."""
+
+
+def correction_prompt(errors: list[str]) -> str:
+    rendered = "\n".join(f"- {error}" for error in errors)
+    return f"""The independent validator rejected the current isolated worktree.
+Repair only the listed Markdown violations in the same worktree, then re-run the
+validator. Do not abandon the session or edit outside the worktree.
+
+{rendered}"""
+
+
+def session_file() -> Path:
+    value = os.environ.get("NIGHTLY_SESSION_FILE")
+    if not value:
+        raise RuntimeError("NIGHTLY_SESSION_FILE is required")
+    return Path(value)
+
+
+def get_or_create(vault: Path) -> str:
+    state = session_file()
+    if state.is_file():
+        data = json.loads(state.read_text(encoding="utf-8"))
+        session = data.get("session")
+        if isinstance(session, str) and session:
+            return session
+    created = payload_data(request("POST", "/session", {
+        "title": f"Nightly memory organization {time.strftime('%Y-%m-%d')}",
+        "agent": "build",
+        "model": {"providerID": "deepseek", "id": "deepseek-flash"},
+        "location": {"directory": str(vault)},
+    }))
+    if not isinstance(created, dict) or not isinstance(created.get("id"), str):
+        raise RuntimeError("OpenCode did not return a session id")
+    state.write_text(json.dumps({"session": created["id"]}) + "\n", encoding="utf-8")
+    return created["id"]
+
+
+def wait_for_completion(session: str) -> None:
+    deadline = time.monotonic() + TIMEOUT_SECONDS
+    while time.monotonic() < deadline:
+        pending = payload_data(request("GET", f"/session/{session}/permission"))
+        if isinstance(pending, list) and pending:
+            raise RuntimeError("nightly session requested an unapproved permission")
+        messages = payload_data(request("GET", f"/session/{session}/message?" + urlencode({"limit": 1, "order": "desc"})))
+        if isinstance(messages, list) and messages and isinstance(messages[0], dict):
+            if messages[0].get("type") == "idle":
+                outcome = messages[0].get("outcome")
+                if outcome == "succeeded":
+                    return
+                raise RuntimeError(f"nightly session ended unsuccessfully: {outcome}")
+        time.sleep(2)
+    raise RuntimeError("nightly OpenCode session timed out")
+
+
+def main() -> int:
+    vault_value = os.environ.get("NIGHTLY_VAULT")
+    if not vault_value:
+        print("NIGHTLY_VAULT is required", file=sys.stderr)
+        return 2
+    vault = Path(vault_value).resolve()
+    try:
+        session = get_or_create(vault)
+        feedback = json.loads(os.environ.get("NIGHTLY_FEEDBACK", "[]"))
+        prompt = correction_prompt(feedback) if feedback else initial_prompt(vault)
+        request("POST", f"/session/{session}/prompt", {"text": prompt, "resume": True})
+        wait_for_completion(session)
+    except (RuntimeError, ValueError, OSError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    print(session)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -80,6 +81,39 @@ def changed_paths(vault: Path, baseline: str, *, staged: bool = False) -> list[s
     return sorted(path for path in raw.split("\0") if path)
 
 
+def previous_successful_baseline(state_dir: Path) -> str | None:
+    state = state_dir / "nightly-state.json"
+    if not state.is_file():
+        return None
+    try:
+        baseline = json.loads(state.read_text(encoding="utf-8")).get("baseline")
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        raise NightlyError("could not read nightly-state.json") from exc
+    return baseline if isinstance(baseline, str) and baseline else None
+
+
+def raw_candidates(vault: Path, previous: str | None, baseline: str) -> list[str]:
+    """Return Raw notes whose non-summary content changed since success.
+
+    Summary-only edits are deliberately omitted so a previous automated
+    maintenance pass does not continuously trigger itself.
+    """
+    if not previous:
+        return []
+    ancestor = git(vault, "merge-base", "--is-ancestor", previous, baseline, check=False)
+    if ancestor.returncode:
+        raise NightlyError("saved nightly baseline is not an ancestor of the current vault")
+    names = git(vault, "diff", "--name-only", "-z", previous, baseline, "--", "Raw").stdout.split("\0")
+    candidates: list[str] = []
+    summary_line = re.compile(r"summary_(?:final|[1-9][0-9]*):")
+    for path in (item for item in names if item.endswith(".md")):
+        diff = git(vault, "diff", "--unified=0", previous, baseline, "--", path).stdout.splitlines()
+        changed = [line[1:].strip() for line in diff if line[:1] in {"+", "-"} and not line.startswith(("+++", "---"))]
+        if any(not summary_line.fullmatch(line) and not summary_line.match(line) for line in changed):
+            candidates.append(path)
+    return sorted(candidates)
+
+
 def assert_allowed(paths: list[str]) -> None:
     for path in paths:
         candidate = Path(path)
@@ -144,10 +178,13 @@ class Outcome:
     error: str | None = None
 
 
-def run_agent(command: str, worktree: Path) -> str | None:
+def run_agent(command: str, worktree: Path, session_file: Path, context_file: Path, feedback: list[str] | None = None) -> str | None:
     environment = os.environ.copy()
     environment["NIGHTLY_VAULT"] = str(worktree)
     environment["NIGHTLY_WORKTREE"] = str(worktree)
+    environment["NIGHTLY_SESSION_FILE"] = str(session_file)
+    environment["NIGHTLY_CONTEXT_FILE"] = str(context_file)
+    environment["NIGHTLY_FEEDBACK"] = json.dumps(feedback or [], ensure_ascii=False)
     # The deployed runner is Linux, but keeping Windows test execution working
     # prevents a drive-letter path from being split at its backslash escapes.
     result = subprocess.run(
@@ -161,6 +198,13 @@ def run_agent(command: str, worktree: Path) -> str | None:
     if result.returncode:
         detail = (result.stderr or result.stdout).strip()
         raise NightlyError(f"agent command failed: {detail}")
+    if session_file.is_file():
+        try:
+            session = json.loads(session_file.read_text(encoding="utf-8")).get("session")
+            if isinstance(session, str) and session:
+                return session
+        except (OSError, ValueError, json.JSONDecodeError):
+            pass
     return result.stdout.strip() or None
 
 
@@ -172,16 +216,31 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
         baseline = snapshot_visible_state(vault)
         run_id = datetime.now().astimezone().strftime("nightly-%Y%m%d-%H%M%S")
         worktree = worktrees / run_id
+        session_file = state_dir / f"{run_id}.session.json"
+        context_file = state_dir / f"{run_id}.context.json"
+        context_file.write_text(
+            json.dumps({"baseline": baseline, "raw_candidates": raw_candidates(vault, previous_successful_baseline(state_dir), baseline)}, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
         worktrees.mkdir(parents=True, exist_ok=True)
         git(vault, "worktree", "add", "--detach", str(worktree), baseline)
         session: str | None = None
         try:
-            session = run_agent(agent_command, worktree)
+            session = run_agent(agent_command, worktree, session_file, context_file)
             tracked_markdown_status(worktree)
             stage_managed(worktree)
             changes = changed_paths(worktree, baseline, staged=True)
             assert_allowed(changes)
             errors = validate(worktree)
+            for _ in range(2):
+                if not errors:
+                    break
+                session = run_agent(agent_command, worktree, session_file, context_file, errors)
+                tracked_markdown_status(worktree)
+                stage_managed(worktree)
+                changes = changed_paths(worktree, baseline, staged=True)
+                assert_allowed(changes)
+                errors = validate(worktree)
             if errors:
                 raise NightlyError("validation failed:\n" + "\n".join(errors))
             if not changes:
@@ -194,7 +253,13 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
             changes = changed_paths(worktree, baseline, staged=True)
             assert_allowed(changes)
 
-            concurrent = changed_paths(vault, baseline)
+            # `git diff baseline` does not include untracked files.  A note
+            # which reaches the formal vault while the isolated task is
+            # running is still a real concurrent edit and must prevent an
+            # overlapping patch from being applied.  Porcelain status covers
+            # both tracked and untracked Markdown; the diff covers the
+            # baseline comparison explicitly as well.
+            concurrent = sorted(set(changed_paths(vault, baseline)) | set(tracked_markdown_status(vault)))
             overlap = sorted(set(changes) & set(concurrent))
             if overlap:
                 raise NightlyError("formal vault changed concurrently: " + ", ".join(overlap))
@@ -212,6 +277,8 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
             return Outcome("failed", baseline, session, [], str(exc))
         finally:
             git(vault, "worktree", "remove", "--force", str(worktree), check=False)
+            session_file.unlink(missing_ok=True)
+            context_file.unlink(missing_ok=True)
 
 
 def main() -> int:

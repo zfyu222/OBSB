@@ -84,6 +84,8 @@ services:
     volumes:
       - /volume2/OBSB/project:/workspace
       - /volume2/OBSB/runtime/opencode:/var/lib/brain-agent
+      - /volume2/OBSB/runtime/nightly:/var/lib/brain-agent/nightly
+      - /volume2/OBSB/worktrees:/worktrees
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS -u \"opencode:$$OPENCODE_SERVER_PASSWORD\" http://127.0.0.1:4096/api/info >/dev/null"]
       interval: 10s
