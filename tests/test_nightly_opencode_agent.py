@@ -12,6 +12,45 @@ import nightly_opencode_agent as adapter  # noqa: E402
 
 
 class NightlyOpenCodeAdapterTests(unittest.TestCase):
+    def test_internal_api_user_is_not_overridden_by_an_ambient_variable(self):
+        original = os.environ.get("OPENCODE_SERVER_USERNAME")
+        original_password = os.environ.get("OPENCODE_SERVER_PASSWORD")
+        os.environ["OPENCODE_SERVER_USERNAME"] = "unrelated-ui-user"
+        original_open = adapter.urlopen
+
+        class Response:
+            def read(self):
+                return b"{}"
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+        captured = {}
+
+        def fake_open(request, timeout):
+            captured["authorization"] = request.headers["Authorization"]
+            return Response()
+
+        adapter.urlopen = fake_open
+        try:
+            os.environ["OPENCODE_SERVER_PASSWORD"] = "test-password"
+            adapter.request("GET", "/info")
+        finally:
+            adapter.urlopen = original_open
+            if original is None:
+                os.environ.pop("OPENCODE_SERVER_USERNAME", None)
+            else:
+                os.environ["OPENCODE_SERVER_USERNAME"] = original
+            if original_password is None:
+                os.environ.pop("OPENCODE_SERVER_PASSWORD", None)
+            else:
+                os.environ["OPENCODE_SERVER_PASSWORD"] = original_password
+        decoded = __import__("base64").b64decode(captured["authorization"].split(" ", 1)[1]).decode()
+        self.assertEqual(decoded, "opencode:test-password")
+
     def test_initial_prompt_limits_the_agent_to_the_isolated_worktree(self):
         prompt = adapter.initial_prompt(Path("/worktrees/nightly-test"))
         self.assertIn("nightly-test/InBox", prompt)

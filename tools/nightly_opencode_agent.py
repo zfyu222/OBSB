@@ -25,7 +25,10 @@ def request(method: str, path: str, payload: dict | None = None) -> object:
     password = os.environ.get("OPENCODE_SERVER_PASSWORD")
     if not password:
         raise RuntimeError("OPENCODE_SERVER_PASSWORD is unavailable")
-    username = os.environ.get("OPENCODE_SERVER_USERNAME", "opencode")
+    # The deployed OpenCode service and its healthcheck use this fixed basic
+    # auth user.  Do not inherit OPENCODE_SERVER_USERNAME here: deployments
+    # may also expose that name for an unrelated UI integration.
+    username = "opencode"
     headers = {"Accept": "application/json"}
     headers["Authorization"] = "Basic " + base64.b64encode(f"{username}:{password}".encode()).decode()
     body = None
