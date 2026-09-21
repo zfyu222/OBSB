@@ -46,10 +46,10 @@ class NightlyOrchestratorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             vault = self.vault(root)
-            (vault / ".gitignore").write_text("# inner policy\n*\n", encoding="utf-8")
+            (vault / ".gitignore").write_text("# inner policy\n*\n!*/\n!.gitignore\n", encoding="utf-8")
             subprocess.run(["git", "-C", str(vault), "add", "-f", ".gitignore"], check=True)
             subprocess.run(["git", "-C", str(vault), "commit", "-m", "ignore policy"], check=True, capture_output=True)
-            (vault / ".gitignore").write_text("# amended policy\n*\n", encoding="utf-8")
+            (vault / ".gitignore").write_text("# amended policy\n*\n!*/\n!.gitignore\n", encoding="utf-8")
             snapshot = snapshot_visible_state(vault)
             self.assertTrue(snapshot)
             status = subprocess.run(["git", "-C", str(vault), "status", "--short"], text=True, capture_output=True, check=True)
