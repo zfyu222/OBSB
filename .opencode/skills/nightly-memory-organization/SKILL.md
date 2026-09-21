@@ -5,14 +5,15 @@ description: Organize Inbox and maintain changed Raw notes only inside the night
 
 # Nightly memory organization
 
-Use this Skill only when the deterministic orchestrator provides `NIGHTLY_VAULT`.
-That path is the isolated worktree, never the formal vault.
+Use this Skill only inside the isolated worktree created by the deterministic
+orchestrator, never the formal vault.
 
-1. Read `AGENTS.md` and use only `NIGHTLY_VAULT` for all Markdown operations.
+1. Read `.nightly-tools/nightly-rules.md` and
+   `.nightly-context.json`. Use only this worktree for all operations.
 2. Search filenames, body text, YAML tags and summaries before creating or merging notes.
 3. Process Inbox conservatively. Preserve URL text, do not fetch URLs or read attachments.
-4. Use `/workspace/tools/tags.py`, `/workspace/tools/validate_vault.py` and
-   `/workspace/tools/vault_ops.py` with `--vault "$NIGHTLY_VAULT"` for their
+4. Use `.nightly-tools/tags.py`, `.nightly-tools/validate_vault.py` and
+   `.nightly-tools/vault_ops.py` with the current worktree as `--vault` for their
    respective deterministic duties.
 5. Do not edit `Assets/`, `.obsidian/`, secrets, runtime data or framework files.
 6. Before ending, run the validator against the worktree and state concisely which

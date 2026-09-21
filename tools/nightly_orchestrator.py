@@ -28,6 +28,7 @@ from validate_vault import validate_note
 
 ALLOWED_ROOTS = {"InBox", "Raw", "Drived"}
 INTERNAL_TOOL_DIR = ".nightly-tools"
+INTERNAL_CONTEXT_FILE = ".nightly-context.json"
 
 
 class NightlyError(RuntimeError):
@@ -73,7 +74,11 @@ def porcelain_paths(vault: Path) -> list[str]:
 def tracked_markdown_status(vault: Path, *, allow_internal_tools: bool = False) -> list[str]:
     paths: list[str] = []
     for path in porcelain_paths(vault):
-        if allow_internal_tools and (path == INTERNAL_TOOL_DIR or path.startswith(INTERNAL_TOOL_DIR + "/")):
+        if allow_internal_tools and (
+            path == INTERNAL_CONTEXT_FILE
+            or path == INTERNAL_TOOL_DIR
+            or path.startswith(INTERNAL_TOOL_DIR + "/")
+        ):
             continue
         candidate = Path(path)
         if candidate.suffix.lower() != ".md" or not candidate.parts or candidate.parts[0] not in ALLOWED_ROOTS:
@@ -217,12 +222,16 @@ def prepare_tool_bundle(worktree: Path) -> tuple[Path, dict[str, bytes]]:
     OpenCode session any access to the formal framework checkout.
     """
     source_tools = Path(__file__).resolve().parent
-    source_skill = source_tools.parent / ".opencode" / "skills" / "nightly-memory-organization" / "SKILL.md"
+    source_root = source_tools.parent
+    source_skill = source_root / ".opencode" / "skills" / "nightly-memory-organization" / "SKILL.md"
     files = {
         "tags.py": source_tools / "tags.py",
         "validate_vault.py": source_tools / "validate_vault.py",
         "vault_ops.py": source_tools / "vault_ops.py",
         "nightly-memory-organization.md": source_skill,
+        # The worktree cannot read the framework checkout.  This is the
+        # authoritative rule set copied in with the deterministic helpers.
+        "nightly-rules.md": source_root / "AGENTS.md",
     }
     if not all(path.is_file() for path in files.values()):
         raise NightlyError("nightly tool bundle source is incomplete")
@@ -307,13 +316,16 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
         run_id = datetime.now().astimezone().strftime("nightly-%Y%m%d-%H%M%S")
         worktree = worktrees / run_id
         session_file = state_dir / f"{run_id}.session.json"
-        context_file = state_dir / f"{run_id}.context.json"
+        worktrees.mkdir(parents=True, exist_ok=True)
+        git(vault, "worktree", "add", "--detach", str(worktree), baseline)
+        # OpenCode's server-side tool processes do not inherit the adapter's
+        # environment.  Keep this task input inside the isolated worktree so
+        # the session can read it without requesting an external directory.
+        context_file = worktree / INTERNAL_CONTEXT_FILE
         context_file.write_text(
             json.dumps({"baseline": baseline, "raw_candidates": raw_candidates(vault, previous_successful_baseline(state_dir), baseline)}, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
-        worktrees.mkdir(parents=True, exist_ok=True)
-        git(vault, "worktree", "add", "--detach", str(worktree), baseline)
         bundle, bundle_manifest = prepare_tool_bundle(worktree)
         session: str | None = None
         try:
@@ -372,7 +384,6 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
             remove_tool_bundle(worktree, bundle)
             git(vault, "worktree", "remove", "--force", str(worktree), check=False)
             session_file.unlink(missing_ok=True)
-            context_file.unlink(missing_ok=True)
 
 
 def main() -> int:
