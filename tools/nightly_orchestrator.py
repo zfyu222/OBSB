@@ -14,6 +14,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -26,6 +27,7 @@ from validate_vault import validate_note
 
 
 ALLOWED_ROOTS = {"InBox", "Raw", "Drived"}
+INTERNAL_TOOL_DIR = ".nightly-tools"
 
 
 class NightlyError(RuntimeError):
@@ -68,9 +70,11 @@ def porcelain_paths(vault: Path) -> list[str]:
     return paths
 
 
-def tracked_markdown_status(vault: Path) -> list[str]:
+def tracked_markdown_status(vault: Path, *, allow_internal_tools: bool = False) -> list[str]:
     paths: list[str] = []
     for path in porcelain_paths(vault):
+        if allow_internal_tools and (path == INTERNAL_TOOL_DIR or path.startswith(INTERNAL_TOOL_DIR + "/")):
+            continue
         candidate = Path(path)
         if candidate.suffix.lower() != ".md" or not candidate.parts or candidate.parts[0] not in ALLOWED_ROOTS:
             raise NightlyError(f"unexpected working-tree change outside managed Markdown: {path}")
@@ -198,6 +202,48 @@ def commit_report(vault: Path, report: Path, message: str) -> None:
     git(vault, "commit", "-m", message)
 
 
+def tool_bundle_manifest(bundle: Path) -> dict[str, bytes]:
+    return {
+        str(path.relative_to(bundle)): path.read_bytes()
+        for path in sorted(bundle.rglob("*"))
+        if path.is_file()
+    }
+
+
+def prepare_tool_bundle(worktree: Path) -> tuple[Path, dict[str, bytes]]:
+    """Copy the deterministic helpers and Skill into the isolated worktree.
+
+    Keeping these inputs in the worktree avoids granting an unattended
+    OpenCode session any access to the formal framework checkout.
+    """
+    source_tools = Path(__file__).resolve().parent
+    source_skill = source_tools.parent / ".opencode" / "skills" / "nightly-memory-organization" / "SKILL.md"
+    files = {
+        "tags.py": source_tools / "tags.py",
+        "validate_vault.py": source_tools / "validate_vault.py",
+        "vault_ops.py": source_tools / "vault_ops.py",
+        "nightly-memory-organization.md": source_skill,
+    }
+    if not all(path.is_file() for path in files.values()):
+        raise NightlyError("nightly tool bundle source is incomplete")
+    bundle = worktree / INTERNAL_TOOL_DIR
+    bundle.mkdir()
+    for name, source in files.items():
+        shutil.copy2(source, bundle / name)
+    return bundle, tool_bundle_manifest(bundle)
+
+
+def assert_tool_bundle_intact(bundle: Path, expected: dict[str, bytes]) -> None:
+    if tool_bundle_manifest(bundle) != expected:
+        raise NightlyError("nightly tool bundle was modified by the agent")
+
+
+def remove_tool_bundle(worktree: Path, bundle: Path) -> None:
+    if bundle.name != INTERNAL_TOOL_DIR or bundle.parent.resolve() != worktree.resolve():
+        raise NightlyError("refusing to remove an unexpected nightly tool path")
+    shutil.rmtree(bundle, ignore_errors=True)
+
+
 @contextmanager
 def exclusive_lock(state_dir: Path):
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -227,6 +273,7 @@ def run_agent(command: str, worktree: Path, session_file: Path, context_file: Pa
     environment["NIGHTLY_WORKTREE"] = str(worktree)
     environment["NIGHTLY_SESSION_FILE"] = str(session_file)
     environment["NIGHTLY_CONTEXT_FILE"] = str(context_file)
+    environment["NIGHTLY_TOOL_ROOT"] = str(worktree / INTERNAL_TOOL_DIR)
     environment["NIGHTLY_FEEDBACK"] = json.dumps(feedback or [], ensure_ascii=False)
     # The deployed runner is Linux, but keeping Windows test execution working
     # prevents a drive-letter path from being split at its backslash escapes.
@@ -267,10 +314,12 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
         )
         worktrees.mkdir(parents=True, exist_ok=True)
         git(vault, "worktree", "add", "--detach", str(worktree), baseline)
+        bundle, bundle_manifest = prepare_tool_bundle(worktree)
         session: str | None = None
         try:
             session = run_agent(agent_command, worktree, session_file, context_file)
-            tracked_markdown_status(worktree)
+            assert_tool_bundle_intact(bundle, bundle_manifest)
+            tracked_markdown_status(worktree, allow_internal_tools=True)
             stage_managed(worktree)
             changes = changed_paths(worktree, baseline, staged=True)
             assert_allowed(changes)
@@ -279,7 +328,8 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
                 if not errors:
                     break
                 session = run_agent(agent_command, worktree, session_file, context_file, errors)
-                tracked_markdown_status(worktree)
+                assert_tool_bundle_intact(bundle, bundle_manifest)
+                tracked_markdown_status(worktree, allow_internal_tools=True)
                 stage_managed(worktree)
                 changes = changed_paths(worktree, baseline, staged=True)
                 assert_allowed(changes)
@@ -319,6 +369,7 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
             commit_report(vault, report, f"Nightly memory organization failed {datetime.now().astimezone().date().isoformat()}")
             return Outcome("failed", baseline, session, [], str(exc))
         finally:
+            remove_tool_bundle(worktree, bundle)
             git(vault, "worktree", "remove", "--force", str(worktree), check=False)
             session_file.unlink(missing_ok=True)
             context_file.unlink(missing_ok=True)

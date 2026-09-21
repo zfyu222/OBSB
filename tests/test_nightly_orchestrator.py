@@ -39,6 +39,7 @@ class NightlyOrchestratorTests(unittest.TestCase):
             self.assertEqual(outcome.status, "success")
             self.assertTrue((vault / "InBox/capture.md").exists())
             self.assertTrue((vault / "Drived/整理日志").glob("*.md"))
+            self.assertEqual(list((root / "worktrees").iterdir()), [])
             state = json.loads((root / "state/nightly-state.json").read_text(encoding="utf-8"))
             self.assertEqual(state["baseline"], outcome.baseline)
 

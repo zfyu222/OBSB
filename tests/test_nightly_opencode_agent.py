@@ -56,6 +56,8 @@ class NightlyOpenCodeAdapterTests(unittest.TestCase):
         self.assertIn("nightly-test/InBox", prompt)
         self.assertIn("Never read or edit the formal vault", prompt)
         self.assertIn("Assets", prompt)
+        self.assertIn(".nightly-tools/nightly-memory-organization.md", prompt)
+        self.assertNotIn("/workspace/tools", prompt)
 
     def test_existing_session_is_reused_without_creating_another(self):
         with tempfile.TemporaryDirectory() as temp:

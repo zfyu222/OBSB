@@ -50,14 +50,16 @@ def payload_data(value: object) -> object:
 
 
 def initial_prompt(vault: Path) -> str:
+    tool_root = Path(os.environ.get("NIGHTLY_TOOL_ROOT", vault / ".nightly-tools"))
     return f"""Run the nightly-memory-organization Skill for this one isolated worktree: {vault}.
 
 Never read or edit the formal vault, framework files, Assets, .obsidian, secrets,
 runtime or any path outside this worktree. Read and modify Markdown only under
 {vault}/InBox, {vault}/Raw and {vault}/Drived. Create missing Markdown folders if
 needed. Search before creating notes; preserve URL text and never fetch URLs or
-read attachments. Use the deterministic tools from /workspace/tools with
---vault {vault} for tags, validation and vault-ops. Organize Inbox conservatively,
+read attachments. First read {tool_root}/nightly-memory-organization.md. Use only
+the deterministic tools in {tool_root} with --vault {vault} for tags, validation
+and vault-ops. Organize Inbox conservatively,
 maintain only the Raw candidates in NIGHTLY_CONTEXT_FILE (skip a Raw candidate
 whose diff is already only generated summary fields), and finish by running the
 validator. Explain the semantic result briefly; the external orchestrator will
