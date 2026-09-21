@@ -120,7 +120,12 @@ def wait_for_completion(session: str) -> None:
             if not assistants:
                 raise RuntimeError("OpenCode completed without an assistant result")
             finish = assistants[-1].get("finish")
-            if finish in {"stop", "end-turn"}:
+            # Some OpenCode builds mark a fully executed final tool turn as
+            # `tool-calls` rather than emitting a following text-only turn.
+            # Reaching this branch still requires no active session and no
+            # pending permission; the orchestrator independently validates
+            # the complete worktree before accepting any write.
+            if finish in {"stop", "end-turn", "tool-calls"}:
                 return
             raise RuntimeError(f"nightly session ended without a successful final response: {finish or 'unknown'}")
         time.sleep(2)

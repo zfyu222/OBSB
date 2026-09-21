@@ -97,6 +97,24 @@ class NightlyOpenCodeAdapterTests(unittest.TestCase):
             adapter.TIMEOUT_SECONDS = original_timeout
         self.assertEqual(calls, ["/session/ses_finished/permission", "/session/active", "/session/ses_finished/message?limit=20"])
 
+    def test_wait_accepts_a_completed_tool_turn_after_independent_validation(self):
+        original_request = adapter.request
+
+        def fake_request(method, path, payload=None):
+            if path.endswith("/permission"):
+                return []
+            if path == "/session/active":
+                return {}
+            if path.endswith("/message?limit=20"):
+                return [{"type": "assistant", "finish": "tool-calls"}]
+            raise AssertionError(path)
+
+        adapter.request = fake_request
+        try:
+            adapter.wait_for_completion("ses_finished")
+        finally:
+            adapter.request = original_request
+
 
 if __name__ == "__main__":
     unittest.main()
