@@ -43,13 +43,34 @@ def git(vault: Path, *args: str, check: bool = True) -> subprocess.CompletedProc
     return run("git", "-C", str(vault), *args, cwd=vault, check=check)
 
 
-def tracked_markdown_status(vault: Path) -> list[str]:
-    status = git(vault, "status", "--porcelain=v1", "--untracked-files=all").stdout.splitlines()
+def porcelain_paths(vault: Path) -> list[str]:
+    """Read status paths without Git's quoting of Unicode or whitespace."""
+    fields = git(vault, "status", "--porcelain=v1", "-z", "--untracked-files=all").stdout.split("\0")
     paths: list[str] = []
-    for row in status:
-        path = row[3:]
-        if " -> " in path:
-            path = path.rsplit(" -> ", 1)[1]
+    index = 0
+    while index < len(fields):
+        field = fields[index]
+        if not field:
+            index += 1
+            continue
+        if len(field) < 4:
+            raise NightlyError("could not parse Git porcelain status")
+        state, path = field[:2], field[3:]
+        paths.append(path)
+        # With `-z`, rename/copy records carry the destination in the first
+        # record and the source in the following NUL-delimited record.
+        if "R" in state or "C" in state:
+            index += 1
+            if index >= len(fields) or not fields[index]:
+                raise NightlyError("could not parse renamed Git status path")
+            paths.append(fields[index])
+        index += 1
+    return paths
+
+
+def tracked_markdown_status(vault: Path) -> list[str]:
+    paths: list[str] = []
+    for path in porcelain_paths(vault):
         candidate = Path(path)
         if candidate.suffix.lower() != ".md" or not candidate.parts or candidate.parts[0] not in ALLOWED_ROOTS:
             raise NightlyError(f"unexpected working-tree change outside managed Markdown: {path}")
@@ -65,12 +86,8 @@ def visible_server_state_status(vault: Path) -> list[str]:
     committed together with server-visible notes, but it is never an allowed
     output of the unattended agent worktree.
     """
-    status = git(vault, "status", "--porcelain=v1", "--untracked-files=all").stdout.splitlines()
     paths: list[str] = []
-    for row in status:
-        path = row[3:]
-        if " -> " in path:
-            path = path.rsplit(" -> ", 1)[1]
+    for path in porcelain_paths(vault):
         if path == ".gitignore":
             paths.append(path)
             continue

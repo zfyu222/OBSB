@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from nightly_orchestrator import execute, snapshot_visible_state  # noqa: E402
+from nightly_orchestrator import execute, snapshot_visible_state, tracked_markdown_status  # noqa: E402
 
 
 class NightlyOrchestratorTests(unittest.TestCase):
@@ -54,6 +54,13 @@ class NightlyOrchestratorTests(unittest.TestCase):
             self.assertTrue(snapshot)
             status = subprocess.run(["git", "-C", str(vault), "status", "--short"], text=True, capture_output=True, check=True)
             self.assertEqual(status.stdout, "")
+
+    def test_status_accepts_unicode_and_space_markdown_paths(self):
+        with tempfile.TemporaryDirectory() as temp:
+            vault = self.vault(Path(temp))
+            relative = "InBox/第一期 Windows 测试.md"
+            (vault / relative).write_text("测试", encoding="utf-8")
+            self.assertEqual(tracked_markdown_status(vault), [relative])
 
     def test_failure_writes_report_without_applying_worktree_change(self):
         with tempfile.TemporaryDirectory() as temp:
