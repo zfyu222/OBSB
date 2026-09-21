@@ -32,6 +32,28 @@ class NightlyOpenCodeAdapterTests(unittest.TestCase):
                 else:
                     os.environ["NIGHTLY_SESSION_FILE"] = original
 
+    def test_wait_finishes_when_session_leaves_the_active_map(self):
+        original_request = adapter.request
+        original_timeout = adapter.TIMEOUT_SECONDS
+        calls = []
+
+        def fake_request(method, path, payload=None):
+            calls.append(path)
+            if path.endswith("/permission"):
+                return []
+            if path == "/session/active":
+                return {"another-session": {"type": "running"}}
+            raise AssertionError(path)
+
+        adapter.request = fake_request
+        adapter.TIMEOUT_SECONDS = 1
+        try:
+            adapter.wait_for_completion("ses_finished")
+        finally:
+            adapter.request = original_request
+            adapter.TIMEOUT_SECONDS = original_timeout
+        self.assertEqual(calls, ["/session/ses_finished/permission", "/session/active"])
+
 
 if __name__ == "__main__":
     unittest.main()

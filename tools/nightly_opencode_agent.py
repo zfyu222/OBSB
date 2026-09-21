@@ -14,7 +14,6 @@ import sys
 import time
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 
@@ -103,13 +102,12 @@ def wait_for_completion(session: str) -> None:
         pending = payload_data(request("GET", f"/session/{session}/permission"))
         if isinstance(pending, list) and pending:
             raise RuntimeError("nightly session requested an unapproved permission")
-        messages = payload_data(request("GET", f"/session/{session}/message?" + urlencode({"limit": 1, "order": "desc"})))
-        if isinstance(messages, list) and messages and isinstance(messages[0], dict):
-            if messages[0].get("type") == "idle":
-                outcome = messages[0].get("outcome")
-                if outcome == "succeeded":
-                    return
-                raise RuntimeError(f"nightly session ended unsuccessfully: {outcome}")
+        # The deployed OpenCode server exposes active sessions as an ID map;
+        # completed sessions disappear from it.  It does not emit an `idle`
+        # pseudo-message, so message polling would wait until timeout.
+        active = payload_data(request("GET", "/session/active"))
+        if isinstance(active, dict) and session not in active:
+            return
         time.sleep(2)
     raise RuntimeError("nightly OpenCode session timed out")
 
