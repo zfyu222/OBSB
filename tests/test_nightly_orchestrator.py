@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from nightly_orchestrator import execute  # noqa: E402
+from nightly_orchestrator import execute, snapshot_visible_state  # noqa: E402
 
 
 class NightlyOrchestratorTests(unittest.TestCase):
@@ -41,6 +41,19 @@ class NightlyOrchestratorTests(unittest.TestCase):
             self.assertTrue((vault / "Drived/整理日志").glob("*.md"))
             state = json.loads((root / "state/nightly-state.json").read_text(encoding="utf-8"))
             self.assertEqual(state["baseline"], outcome.baseline)
+
+    def test_snapshot_allows_only_the_required_root_gitignore(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            vault = self.vault(root)
+            (vault / ".gitignore").write_text("# inner policy\n*\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(vault), "add", "-f", ".gitignore"], check=True)
+            subprocess.run(["git", "-C", str(vault), "commit", "-m", "ignore policy"], check=True, capture_output=True)
+            (vault / ".gitignore").write_text("# amended policy\n*\n", encoding="utf-8")
+            snapshot = snapshot_visible_state(vault)
+            self.assertTrue(snapshot)
+            status = subprocess.run(["git", "-C", str(vault), "status", "--short"], text=True, capture_output=True, check=True)
+            self.assertEqual(status.stdout, "")
 
     def test_failure_writes_report_without_applying_worktree_change(self):
         with tempfile.TemporaryDirectory() as temp:

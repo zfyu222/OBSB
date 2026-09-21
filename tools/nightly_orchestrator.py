@@ -57,9 +57,35 @@ def tracked_markdown_status(vault: Path) -> list[str]:
     return paths
 
 
+def visible_server_state_status(vault: Path) -> list[str]:
+    """Validate the formal vault state before its technical snapshot.
+
+    The inner repository's root `.gitignore` is the sole non-Markdown file
+    required to express the Markdown-only tracking policy.  It may need to be
+    committed together with server-visible notes, but it is never an allowed
+    output of the unattended agent worktree.
+    """
+    status = git(vault, "status", "--porcelain=v1", "--untracked-files=all").stdout.splitlines()
+    paths: list[str] = []
+    for row in status:
+        path = row[3:]
+        if " -> " in path:
+            path = path.rsplit(" -> ", 1)[1]
+        if path == ".gitignore":
+            paths.append(path)
+            continue
+        candidate = Path(path)
+        if candidate.suffix.lower() != ".md" or not candidate.parts or candidate.parts[0] not in ALLOWED_ROOTS:
+            raise NightlyError(f"unexpected working-tree change outside managed Markdown: {path}")
+        paths.append(path)
+    return paths
+
+
 def snapshot_visible_state(vault: Path) -> str:
-    tracked_markdown_status(vault)
+    visible_server_state_status(vault)
     stage_managed(vault)
+    if (vault / ".gitignore").is_file():
+        git(vault, "add", "--", ".gitignore")
     staged = git(vault, "diff", "--cached", "--quiet", check=False)
     if staged.returncode == 1:
         git(vault, "commit", "-m", "Technical server-state snapshot before nightly organization")
