@@ -1,0 +1,104 @@
+name: obsidiansb-sync
+
+services:
+  couchdb:
+    image: couchdb:3.5.2.1@sha256:199ff89f9a930df6032a216570ae0169fcc36c449bb02b40fafeb6efecdb606f
+    container_name: brain-couchdb
+    user: "5984:5984"
+    restart: unless-stopped
+    env_file:
+      - /volume2/OBSB/secrets/couchdb-admin.env
+    ports:
+      - "10.0.0.81:15984:5984"
+    volumes:
+      - /volume2/OBSB/runtime/couchdb/data:/opt/couchdb/data
+      - /volume2/OBSB/project/deploy/couchdb/local.ini:/opt/couchdb/etc/local.d/obsidiansb.ini:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -u \"$$COUCHDB_USER:$$COUCHDB_PASSWORD\" http://127.0.0.1:5984/_up >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - sync
+
+  livesync-cli:
+    image: obsidiansb/livesync-cli:1.0.30
+    container_name: brain-livesync-cli
+    user: "1026:100"
+    restart: unless-stopped
+    depends_on:
+      couchdb:
+        condition: service_healthy
+    command:
+      - --settings
+      - /run/secrets/livesync-settings.json
+      - --vault
+      - /vault
+      - daemon
+    volumes:
+      - /volume2/OBSB/project/vault:/vault
+      - /volume2/OBSB/runtime/livesync/db:/data
+      - /volume2/OBSB/secrets/livesync-settings.json:/run/secrets/livesync-settings.json:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - sync
+
+  brain-agent:
+    image: obsidiansb/brain-agent:0.1.0
+    container_name: brain-agent
+    user: "1026:100"
+    restart: unless-stopped
+    working_dir: /workspace
+    env_file:
+      - /volume2/OBSB/secrets/opencode.env
+      - /volume2/OBSB/secrets/deepseek.env
+    environment:
+      HOME: /var/lib/brain-agent
+      XDG_CONFIG_HOME: /var/lib/brain-agent/.config
+      XDG_DATA_HOME: /var/lib/brain-agent/.local/share
+      XDG_CACHE_HOME: /var/lib/brain-agent/.cache
+      TZ: Asia/Shanghai
+    command:
+      - serve
+      - --hostname
+      - 0.0.0.0
+      - --port
+      - "4096"
+      - --cors
+      - https://brain.hytzfy.dpdns.org:40087
+    ports:
+      - "10.0.0.81:14096:4096"
+    volumes:
+      - /volume2/OBSB/project:/workspace
+      - /volume2/OBSB/runtime/opencode:/var/lib/brain-agent
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -u \"opencode:$$OPENCODE_SERVER_PASSWORD\" http://127.0.0.1:4096/api/info >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - sync
+
+networks:
+  sync:
+    name: obsidiansb-sync
+    driver: bridge

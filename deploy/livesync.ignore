@@ -1,0 +1,3 @@
+# Synology-generated directories must never enter LiveSync.
+**/@eaDir/**
+**/#recycle/**

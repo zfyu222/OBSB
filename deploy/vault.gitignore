@@ -1,0 +1,11 @@
+# The inner repository tracks knowledge Markdown only.
+*
+!.gitignore
+!.livesync/
+!.livesync/ignore
+!InBox/
+!InBox/**/*.md
+!Raw/
+!Raw/**/*.md
+!Drived/
+!Drived/**/*.md

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Note References and Deletion"
+  short_description: "Inspect backlinks and safely delete vault notes"
+  default_prompt: "Use $note-deletion to inspect references and safely delete a vault note."

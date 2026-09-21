@@ -1,0 +1,17 @@
+.second-brain/index.json
+.second-brain/backups/
+.obsidian/workspace*.json
+.trash/
+vault/
+bin/docker-compose
+artifacts/
+runtime/
+worktrees/
+secrets/
+secrets.local.env
+*.env
+*.env.*
+__pycache__/
+*.py[cod]
+@eaDir/
+\#recycle/

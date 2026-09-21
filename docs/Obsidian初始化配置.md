@@ -1,0 +1,124 @@
+# Obsidian 初始化配置
+
+最后更新：2026-09-20
+
+本文件记录第二大脑方案所依赖的 Obsidian 客户端设置，供新电脑、手机或新 vault 初始化时逐项配置和验证。只把用户已确认且确实影响方案的设置列入“必需设置”；尚未验证的插件选项放在待办区，不应当作已部署事实。
+
+## 1. 打开正确的 vault
+
+- Obsidian vault 根目录：目标生产结构中的 `vault/`。
+- `InBox/`、`Raw/`、`Drived/` 和 `Assets/` 都位于该根目录中。
+- 外层的 `AGENTS.md`、`docs/`、`skills/`、`tools/` 等框架文件不属于 Obsidian vault，不应显示或同步到移动端。
+
+## 2. 必需设置
+
+### 2.1 新附件统一进入 `Assets/`
+
+设置路径：**设置 → 文件与链接 → 新附件的默认位置**。
+
+配置：
+
+1. 选择“下方指定的文件夹”；
+2. 文件夹填写 `Assets`，使用相对于 vault 根目录的路径；
+3. 在每个客户端粘贴一张测试图片，确认文件实际创建在 `vault/Assets/`，笔记中的引用能够正常显示。
+
+目的：附件位置不随 Inbox 笔记移动而改变，避免夜间整理笔记时连带搬迁附件或改写附件链接。
+
+注意：此设置只影响之后新增的附件，不会自动搬迁已有附件。已有附件的迁移必须另行检查并更新引用，不能直接批量移动。
+
+### 2.2 LiveSync 不同步隐藏配置
+
+适用设备：Windows、Android，以及服务器 LiveSync CLI 的对应配置。
+
+配置：
+
+1. 关闭 Self-hosted LiveSync 的 Hidden File Sync；
+2. 关闭 Customisation Sync；
+3. 确认 `.obsidian/`、`.git/`、缓存、临时文件和系统文件不会进入同步数据库；
+4. 保持普通 Markdown、`InBox/`、`Raw/`、`Drived/` 与 `Assets/` 正常同步。
+
+目的：Windows 与 Android 分别维护适合自己的插件、界面和设备配置；服务器内层知识库 Git 只用于 Agent 历史和恢复，不能传播到客户端。各设备必须按照本文件分别初始化，不依赖 `.obsidian/` 自动复制。
+
+实施验证：在测试 vault 中分别创建普通 Markdown、附件和测试隐藏文件，确认前两者跨设备到达，`.obsidian/` 与 `.git/` 内容不会进入另一设备。具体开关名称和位置以部署时固定的 LiveSync 版本界面为准。
+
+### 2.3 LiveSync 启用 E2EE V2
+
+适用设备：Windows、Android 和服务器 LiveSync CLI。
+
+配置：
+
+1. 启用 End-to-End Encryption；
+2. 使用当前推荐的 V2 算法；
+3. 所有同步端使用同一个 vault 加密口令；
+4. 第一期不启用 Path Obfuscation；
+5. CouchDB 地址必须使用 `https://obsync.hytzfy.dpdns.org:40087`，不得关闭 TLS 校验。
+
+目的：各设备与服务器上的正式 Markdown 保持明文可编辑，写入 CouchDB 的同步副本使用 E2EE 加密。路径混淆暂不启用，因此数据库中的文件路径仍可能可见。
+
+注意：本文件不得记录加密口令。新设备使用加密 Setup URI 初始化，Setup URI 的临时解锁口令必须与 vault 加密口令不同并分开传递。
+
+### 2.4 LiveSync 使用实时同步且不自动裁决冲突
+
+适用设备：Windows、Android；服务器 LiveSync CLI 的对应运行要求记录在部署配置中。
+
+配置：
+
+1. 在“同步预设”中选择 **LiveSync 同步**并点击“应用”，同步模式应显示为 LiveSync；
+2. 使用该预设提供的实时、连续、双向复制，不另外开启保存时同步、编辑器保存时同步、打开文件时同步或定期批处理；这些重复触发项由 1.0.30 的 LiveSync 预设保持关闭；
+3. Android 新设备导入 Setup URI、完成首次拉取并通过兼容性确认后，再次核对并应用 **LiveSync 同步**预设；否则可能只完成首次拉取，之后必须手动执行“Sync with a saved connection”；
+4. Windows 可以保持后台复制活动；Android 不要求 Obsidian 被系统挂起后继续后台同步；
+5. 不启用自动选择较新文件或其他实验性静默冲突裁决；
+6. Self-hosted LiveSync 1.0.30 的远程数据库容量提醒选择“不，请永远不要警告”；NAS 容量由群晖监控，该提示不影响同步或数据库实际容量。
+
+行为：服务器 LiveSync CLI 使用默认 daemon，通过 `_changes` feed 接收 CouchDB 变化并监视本地 vault。Android 离线、关闭或被挂起时不保证立即收到 AI 修改，重新打开 Obsidian 并完成同步后显示最新内容。
+
+冲突：出现冲突时保留待处理状态，不由插件静默覆盖。夜间 Agent 跳过冲突笔记并在整理日志中报告；用户可以在 Obsidian 处理，或明确委托 Agent 比较并解决。
+
+验证：在 Windows、Android 和服务器依次修改测试笔记，确认三端传播；再制造并行编辑，确认不会静默丢弃任一版本，且服务器任务能够识别并报告冲突。
+
+### 2.5 新笔记默认进入 `InBox/`
+
+设置路径：**设置 → 文件与链接 → 新建笔记的存放位置**。
+
+配置：选择“下方指定的文件夹”，填写 `InBox`，使用相对于 vault 根目录的路径。Windows 与 Android 均设置。
+
+目的：用户在任何设备速记时无需先选择分类或查找目录，后续由夜间记忆整理移动或合并到 `Raw/`。
+
+验证：分别在 Windows 和 Android 直接新建笔记，确认实际文件位于 `vault/InBox/`，并能同步到服务器。
+
+### 2.6 新设备必须加入服务器已有同步
+
+首次顺序：
+
+1. 服务器先建立正式空 vault、CouchDB 同步远端和 LiveSync CLI；
+2. Windows 选择“加入已有同步”或等价的 existing-device/fetch 流程，不得用本地空 vault 覆盖服务器；
+3. Windows 创建测试 Markdown 与图片并验证服务器收到；
+4. 从已正常工作的 Windows 生成新的加密 Setup URI，供 Android 作为已有同步的新设备加入；
+5. 三端完成新增、修改、附件、删除和冲突验证后，才允许启用 Agent 写入和凌晨整理。
+
+注意：LiveSync 同步文件内容，不依赖空目录传播。各设备初始化时按本文件建立 `InBox/` 与 `Assets/` 等必要目录。若插件界面文字随固定版本变化，以“接收已有远端内容、不覆盖服务器”为判断标准。
+
+## 3. 多设备要求
+
+- 系统为单用户、多设备；所有设备连接同一个 vault 和同一个受限 CouchDB 同步账号，不使用 CouchDB 管理员账号。
+- 第一期必须在 Windows 桌面端和 Android 移动端分别完成初始化及验证；macOS、iOS 和 Linux 桌面端不属于首轮验收范围。
+- 每台新设备都必须核对本文件中的设置，不能假设另一台设备的 Obsidian 本地设置已经自动复制。
+- 第一期明确不通过 Self-hosted LiveSync 同步 Obsidian 配置；Windows 与 Android 各自按本文件初始化。
+- 知识内容和附件由 LiveSync 同步；外层 Agent 工程、两个 Git 仓库的内部数据、缓存和密钥不属于移动端同步范围。
+
+## 4. 待实施时验证并补充
+
+以下项目尚未确定具体配置值，不属于当前已确认设置：
+
+- Self-hosted LiveSync 插件通过 `https://obsync.hytzfy.dpdns.org:40087` 连接；必须使用有效 TLS 证书，不允许明文 HTTP。实施时仍需确认数据库名、CORS、受限同步账号权限和连接测试，本文件不得记录密码；
+- 在固定的 LiveSync 版本中验证 Hidden File Sync、Customisation Sync 关闭后的实际排除行为，尤其确认服务器 `vault/.git/` 不会进入同步数据库；
+- 笔记重命名或移动时自动更新内部链接的设置是否作为强制要求；
+- 新建笔记默认位置、删除文件行为及回收站策略是否需要统一；
+- 手机端与桌面端的插件和设置差异。
+
+## 5. 维护规则
+
+- 任何功能若依赖 Obsidian 核心设置、社区插件设置或客户端权限，确认后必须在本文件增加设置路径、配置值、适用设备、用途和验证方法。
+- 配置名称可能随 Obsidian 版本或中文翻译变化；实施时应同时记录当时版本并以实际界面验证。
+- 不在本文件保存 CouchDB 凭据、API 密钥、密码或其他秘密。
+- 本文件是初始化说明，不代表相关设置已经在任何设备上实际完成。

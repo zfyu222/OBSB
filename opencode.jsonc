@@ -1,0 +1,54 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "deepseek/deepseek-flash",
+  "small_model": "deepseek/deepseek-flash",
+  "share": "disabled",
+  "warming": false,
+  "providers": {
+    "deepseek": {
+      "name": "DeepSeek",
+      "env": ["DEEPSEEK_API_KEY"],
+      "package": "@opencode/ai/providers/deepseek",
+      "settings": {
+        "baseURL": "https://api.deepseek.com/v1",
+        "apiKey": "{env:DEEPSEEK_API_KEY}"
+      },
+      "models": {
+        "deepseek-flash": {
+          "name": "DeepSeek Flash",
+          "modelID": "deepseek-flash",
+          "capabilities": {
+            "tools": true,
+            "input": ["text"],
+            "output": ["text"]
+          },
+          "limit": {
+            "context": 1048576,
+            "output": 131072
+          }
+        }
+      }
+    }
+  },
+  "permissions": [
+    { "action": "*", "resource": "*", "effect": "allow" },
+    { "action": "shell", "resource": "*", "effect": "ask" },
+    { "action": "shell", "resource": "rg *", "effect": "allow" },
+    { "action": "shell", "resource": "git status *", "effect": "allow" },
+    { "action": "shell", "resource": "git diff *", "effect": "allow" },
+    { "action": "shell", "resource": "git log *", "effect": "allow" },
+    { "action": "shell", "resource": "python3 tools/tags.py *", "effect": "allow" },
+    { "action": "shell", "resource": "python3 tools/validate_vault.py *", "effect": "allow" },
+    { "action": "shell", "resource": "python3 tools/vault_ops.py *", "effect": "allow" },
+    { "action": "shell", "resource": "git push *", "effect": "deny" },
+    { "action": "subagent", "resource": "*", "effect": "deny" },
+    { "action": "webfetch", "resource": "*", "effect": "deny" },
+    { "action": "websearch", "resource": "*", "effect": "deny" },
+    { "action": "read", "resource": "vault/Assets/*", "effect": "deny" },
+    { "action": "edit", "resource": "vault/Assets/*", "effect": "deny" },
+    { "action": "read", "resource": "secrets/*", "effect": "deny" },
+    { "action": "edit", "resource": "secrets/*", "effect": "deny" },
+    { "action": "read", "resource": "runtime/*", "effect": "deny" },
+    { "action": "edit", "resource": "runtime/*", "effect": "deny" }
+  ]
+}
