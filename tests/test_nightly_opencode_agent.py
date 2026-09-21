@@ -43,6 +43,8 @@ class NightlyOpenCodeAdapterTests(unittest.TestCase):
                 return []
             if path == "/session/active":
                 return {"another-session": {"type": "running"}}
+            if path.endswith("/message?limit=20"):
+                return [{"type": "assistant", "finish": "stop"}]
             raise AssertionError(path)
 
         adapter.request = fake_request
@@ -52,7 +54,7 @@ class NightlyOpenCodeAdapterTests(unittest.TestCase):
         finally:
             adapter.request = original_request
             adapter.TIMEOUT_SECONDS = original_timeout
-        self.assertEqual(calls, ["/session/ses_finished/permission", "/session/active"])
+        self.assertEqual(calls, ["/session/ses_finished/permission", "/session/active", "/session/ses_finished/message?limit=20"])
 
 
 if __name__ == "__main__":

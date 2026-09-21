@@ -107,7 +107,16 @@ def wait_for_completion(session: str) -> None:
         # pseudo-message, so message polling would wait until timeout.
         active = payload_data(request("GET", "/session/active"))
         if isinstance(active, dict) and session not in active:
-            return
+            messages = payload_data(request("GET", f"/session/{session}/message?limit=20"))
+            if not isinstance(messages, list):
+                raise RuntimeError("OpenCode completed without readable session messages")
+            assistants = [message for message in messages if isinstance(message, dict) and message.get("type") == "assistant"]
+            if not assistants:
+                raise RuntimeError("OpenCode completed without an assistant result")
+            finish = assistants[-1].get("finish")
+            if finish in {"stop", "end-turn"}:
+                return
+            raise RuntimeError(f"nightly session ended without a successful final response: {finish or 'unknown'}")
         time.sleep(2)
     raise RuntimeError("nightly OpenCode session timed out")
 
