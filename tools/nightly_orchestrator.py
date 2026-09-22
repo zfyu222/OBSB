@@ -30,6 +30,7 @@ ALLOWED_ROOTS = {"InBox", "Raw", "Drived"}
 INTERNAL_TOOL_DIR = ".nightly-tools"
 INTERNAL_CONTEXT_FILE = ".nightly-context.json"
 INTERNAL_OPERATIONS_FILE = ".nightly-operations.json"
+NIGHTLY_WORKTREE_DIRECTORY = "nightly"
 
 REPORT_SECTIONS = (
     ("created", "新建"),
@@ -157,6 +158,16 @@ def previous_successful_baseline(state_dir: Path) -> str | None:
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         raise NightlyError("could not read nightly-state.json") from exc
     return baseline if isinstance(baseline, str) and baseline else None
+
+
+def nightly_worktree_path(worktrees: Path) -> Path:
+    """Use one stable UI-facing directory while recreating its Git worktree.
+
+    OpenCode groups sessions by their location. The directory is removed at the
+    end of each run, so it remains an isolated temporary worktree; retaining
+    its stable name keeps all unattended sessions under one `nightly` project.
+    """
+    return worktrees / NIGHTLY_WORKTREE_DIRECTORY
 
 
 def raw_candidates(vault: Path, previous: str | None, baseline: str) -> list[str]:
@@ -421,7 +432,7 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
         baseline = snapshot_visible_state(vault)
         candidate_raw = raw_candidates(vault, previous_successful_baseline(state_dir), baseline)
         run_id = datetime.now().astimezone().strftime("nightly-%Y%m%d-%H%M%S")
-        worktree = worktrees / run_id
+        worktree = nightly_worktree_path(worktrees)
         session_file = state_dir / f"{run_id}.session.json"
         worktrees.mkdir(parents=True, exist_ok=True)
         git(vault, "worktree", "add", "--detach", str(worktree), baseline)

@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from nightly_orchestrator import changed_paths, execute, snapshot_visible_state, tool_bundle_manifest, tracked_markdown_status, write_report  # noqa: E402
+from nightly_orchestrator import changed_paths, execute, nightly_worktree_path, snapshot_visible_state, tool_bundle_manifest, tracked_markdown_status, write_report  # noqa: E402
 
 
 class NightlyOrchestratorTests(unittest.TestCase):
@@ -62,6 +62,10 @@ class NightlyOrchestratorTests(unittest.TestCase):
             relative = "InBox/第一期 Windows 测试.md"
             (vault / relative).write_text("测试", encoding="utf-8")
             self.assertEqual(tracked_markdown_status(vault), [relative])
+
+    def test_nightly_worktree_has_a_stable_project_facing_path(self):
+        root = Path("temporary-worktrees")
+        self.assertEqual(nightly_worktree_path(root), root / "nightly")
 
     def test_tool_bundle_manifest_ignores_reproducible_python_cache(self):
         with tempfile.TemporaryDirectory() as temp:
