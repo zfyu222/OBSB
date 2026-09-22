@@ -124,9 +124,8 @@ class NightlyOrchestratorTests(unittest.TestCase):
             )
             content = report.read_text(encoding="utf-8")
             self.assertIn("## 笔记处理", content)
-            self.assertIn("### 新建", content)
-            self.assertIn("[[Raw/领域/new]]：新建知识笔记并补齐标签和摘要。", content)
-            self.assertIn("### 元数据更新", content)
+            self.assertIn("[[Raw/领域/new]]（新建、更新元数据）：新建知识笔记并补齐标签和摘要。", content)
+            self.assertEqual(content.count("[[Raw/领域/new]]"), 1)
 
     def test_changed_paths_keeps_the_removed_inbox_source_of_a_move(self):
         with tempfile.TemporaryDirectory() as temp:

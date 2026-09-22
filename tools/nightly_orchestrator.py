@@ -34,15 +34,15 @@ NIGHTLY_WORKTREE_DIRECTORY = "nightly"
 NIGHTLY_MAINTENANCE_KEY = "nightly_maintenance"
 NIGHTLY_MAINTENANCE_SKIP = "skip"
 
-REPORT_SECTIONS = (
-    ("created", "新建"),
-    ("moved", "移动"),
-    ("merged", "合并"),
-    ("metadata_updated", "元数据更新"),
-    ("inbox_removed", "删除的 Inbox 源文件"),
-    ("deleted", "删除"),
-)
-REPORT_ACTIONS = {action for action, _ in REPORT_SECTIONS}
+REPORT_ACTION_LABELS = {
+    "created": "新建",
+    "moved": "移动",
+    "merged": "合并",
+    "metadata_updated": "更新元数据",
+    "inbox_removed": "移除 Inbox 来源",
+    "deleted": "删除",
+}
+REPORT_ACTIONS = set(REPORT_ACTION_LABELS)
 
 
 class NightlyError(RuntimeError):
@@ -335,15 +335,9 @@ def write_report(vault: Path, *, status: str, baseline: str, session: str | None
     ]
     if operations:
         lines.extend(["", "## 笔记处理", ""])
-        for action, heading in REPORT_SECTIONS:
-            entries = [item for item in operations if action in item["actions"]]
-            lines.extend([f"### {heading}", ""])
-            if entries:
-                for item in entries:
-                    lines.append(f"- {report_link(str(item['path']), vault)}：{item['detail']}")
-            else:
-                lines.append("- 无")
-            lines.append("")
+        for item in operations:
+            action_names = "、".join(REPORT_ACTION_LABELS[action] for action in item["actions"])
+            lines.append(f"- {report_link(str(item['path']), vault)}（{action_names}）：{item['detail']}")
     elif changes:
         lines.extend(["", "## 检测到的 Markdown 变更", ""])
         lines.extend(f"- `{path}`" for path in changes)
