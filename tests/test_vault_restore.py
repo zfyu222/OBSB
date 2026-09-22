@@ -59,6 +59,8 @@ class VaultRestoreTests(unittest.TestCase):
             vault = self.init_vault(root)
             first = vault / "Raw/领域/a.md"
             second = vault / "Raw/领域/b.md"
+            first.write_text("初始", encoding="utf-8")
+            self.commit(vault, "pre-nightly capture")
             first.write_text("---\ntags: [测试]\nsummary_final: 夜间\n---\n夜间", encoding="utf-8")
             nightly = self.commit(vault, "Nightly memory organization 2026-09-22")
             second.write_text("---\ntags: [测试]\nsummary_final: 后续\n---\n后续", encoding="utf-8")
@@ -66,7 +68,7 @@ class VaultRestoreTests(unittest.TestCase):
 
             payload = self.run_cli(vault, root / "worktrees", "revert-task", nightly, "--apply")
             self.assertEqual(payload["status"], "applied")
-            self.assertIn("初始", first.read_text(encoding="utf-8"))
+            self.assertEqual(first.read_text(encoding="utf-8"), "初始")
             self.assertIn("后续", second.read_text(encoding="utf-8"))
             subject = subprocess.run(["git", "-C", str(vault), "show", "-s", "--format=%s"], text=True, capture_output=True, check=True).stdout.strip()
             self.assertTrue(subject.startswith("Revert nightly organization"))

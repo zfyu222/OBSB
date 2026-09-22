@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from nightly_orchestrator import ALLOWED_ROOTS, NightlyError, porcelain_paths, snapshot_visible_state, validate
+from nightly_orchestrator import ALLOWED_ROOTS, NightlyError, porcelain_paths, snapshot_visible_state
 
 
 class RestoreError(RuntimeError):
@@ -77,9 +77,18 @@ def changed_paths(worktree: Path) -> list[str]:
 
 
 def validate_paths(worktree: Path, paths: list[str]) -> None:
-    errors = validate(worktree, paths)
-    if errors:
-        raise RestoreError("restored notes failed validation:\n" + "\n".join(errors))
+    # A restoration intentionally reproduces a historical Markdown state.
+    # That state can predate today's tags/summary requirements, so applying
+    # the full Raw metadata validator here would make a valid task reversal
+    # impossible.  Keep the deterministic safety checks that still apply to
+    # every historical patch: only approved paths, no conflict stages, and a
+    # whitespace-clean staged diff.
+    unresolved = git(worktree, "diff", "--cached", "--name-only", "--diff-filter=U").stdout.strip()
+    if unresolved:
+        raise RestoreError("restoration leaves unresolved Git conflicts: " + unresolved)
+    checked = git(worktree, "diff", "--cached", "--check", check=False)
+    if checked.returncode:
+        raise RestoreError("restored Markdown failed Git diff checks: " + (checked.stderr or checked.stdout).strip())
 
 
 def add_worktree(vault: Path, path: Path, revision: str) -> None:
