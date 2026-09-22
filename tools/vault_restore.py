@@ -81,14 +81,14 @@ def validate_paths(worktree: Path, paths: list[str]) -> None:
     # That state can predate today's tags/summary requirements, so applying
     # the full Raw metadata validator here would make a valid task reversal
     # impossible.  Keep the deterministic safety checks that still apply to
-    # every historical patch: only approved paths, no conflict stages, and a
-    # whitespace-clean staged diff.
+    # every historical patch: only approved paths and no conflict stages.
+    # Git generates the staged binary patch and later applies it with
+    # ``git apply --index --3way``; that is the integrity check.  ``git diff
+    # --check`` is deliberately not used because it rejects otherwise valid
+    # historical Markdown that ends in a blank line.
     unresolved = git(worktree, "diff", "--cached", "--name-only", "--diff-filter=U").stdout.strip()
     if unresolved:
         raise RestoreError("restoration leaves unresolved Git conflicts: " + unresolved)
-    checked = git(worktree, "diff", "--cached", "--check", check=False)
-    if checked.returncode:
-        raise RestoreError("restored Markdown failed Git diff checks: " + (checked.stderr or checked.stdout).strip())
 
 
 def add_worktree(vault: Path, path: Path, revision: str) -> None:

@@ -89,6 +89,20 @@ class VaultRestoreTests(unittest.TestCase):
             current = subprocess.run(["git", "-C", str(vault), "rev-parse", "HEAD"], text=True, capture_output=True, check=True).stdout.strip()
             self.assertEqual(current, head)
 
+    def test_revert_task_preserves_historical_trailing_blank_line(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            vault = self.init_vault(root)
+            report = vault / "Drived/整理日志/2026-09-22.md"
+            report.write_text("# 报告\n\n", encoding="utf-8")
+            self.commit(vault, "report before nightly")
+            report.write_text("# 报告\n\n<!-- probe -->\n", encoding="utf-8")
+            nightly = self.commit(vault, "Nightly memory organization 2026-09-22")
+
+            payload = self.run_cli(vault, root / "worktrees", "revert-task", nightly, "--apply")
+            self.assertEqual(payload["status"], "applied")
+            self.assertEqual(report.read_text(encoding="utf-8"), "# 报告\n\n")
+
     def test_restore_one_note_from_history_creates_new_commit(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
