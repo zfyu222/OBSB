@@ -3,12 +3,13 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from nightly_orchestrator import changed_paths, execute, nightly_worktree_path, raw_candidates, read_operations, snapshot_visible_state, tool_bundle_manifest, tracked_markdown_status, validate, write_report  # noqa: E402
+from nightly_orchestrator import changed_paths, execute, exclusive_lock, nightly_worktree_path, raw_candidates, read_operations, snapshot_visible_state, tool_bundle_manifest, tracked_markdown_status, validate, write_report  # noqa: E402
 
 
 class NightlyOrchestratorTests(unittest.TestCase):
@@ -244,6 +245,30 @@ class NightlyOrchestratorTests(unittest.TestCase):
             self.assertEqual(outcome.status, "failed")
             report = next((vault / "Drived/整理日志").glob("*.md"))
             self.assertIn("formal vault changed concurrently", report.read_text(encoding="utf-8"))
+
+    def test_interrupted_run_releases_lock_and_does_not_advance_baseline(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            vault = self.vault(root)
+            with patch("nightly_orchestrator.run_agent", side_effect=KeyboardInterrupt):
+                with self.assertRaises(KeyboardInterrupt):
+                    execute(vault, root / "worktrees", root / "state", "unused")
+            self.assertFalse((root / "state/nightly.lock").exists())
+            self.assertFalse((root / "state/nightly-state.json").exists())
+            self.assertFalse((root / "worktrees/nightly").exists())
+
+    def test_dead_runner_lock_is_reclaimed_but_live_runner_remains_exclusive(self):
+        with tempfile.TemporaryDirectory() as temp:
+            state = Path(temp) / "state"
+            stale = state / "nightly.lock"
+            stale.mkdir(parents=True)
+            (stale / "owner.json").write_text('{"pid":999999,"token":"dead"}\n', encoding="utf-8")
+            with exclusive_lock(state):
+                self.assertTrue((state / "nightly.lock/owner.json").is_file())
+                with self.assertRaisesRegex(Exception, "another nightly run is already active"):
+                    with exclusive_lock(state):
+                        pass
+            self.assertFalse((state / "nightly.lock").exists())
 
 
 if __name__ == "__main__":

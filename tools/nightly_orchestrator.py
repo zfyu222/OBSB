@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
@@ -33,6 +34,7 @@ INTERNAL_OPERATIONS_FILE = ".nightly-operations.json"
 NIGHTLY_WORKTREE_DIRECTORY = "nightly"
 NIGHTLY_MAINTENANCE_KEY = "nightly_maintenance"
 NIGHTLY_MAINTENANCE_SKIP = "skip"
+LOCK_OWNER_FILE = "owner.json"
 
 REPORT_ACTIONS = {"created", "moved", "merged", "metadata_updated", "inbox_removed", "deleted"}
 REPORT_DETAIL_MAX = 100
@@ -400,18 +402,68 @@ def remove_tool_bundle(worktree: Path, bundle: Path) -> None:
     shutil.rmtree(bundle, ignore_errors=True)
 
 
+def process_is_running(pid: int) -> bool:
+    """Return whether a runner PID still exists in the local namespace."""
+    if os.name == "nt":
+        import ctypes
+
+        handle = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)
+        if not handle:
+            return False
+        ctypes.windll.kernel32.CloseHandle(handle)
+        return True
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
 @contextmanager
 def exclusive_lock(state_dir: Path):
     state_dir.mkdir(parents=True, exist_ok=True)
     lock = state_dir / "nightly.lock"
+    token = uuid.uuid4().hex
+    owner = lock / LOCK_OWNER_FILE
     try:
         lock.mkdir()
     except FileExistsError as exc:
-        raise NightlyError("another nightly run is already active") from exc
+        try:
+            data = json.loads(owner.read_text(encoding="utf-8"))
+            pid = data.get("pid")
+            if not isinstance(pid, int) or pid <= 0:
+                raise ValueError("invalid pid")
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            raise NightlyError("nightly lock exists but its owner cannot be verified") from error
+        if not process_is_running(pid):
+            # The previous runner died without reaching its finally block.
+            # The lock belongs to a process that no longer exists in this
+            # container namespace, so reclaiming this exact runtime path is
+            # safe before starting a fresh isolated run.
+            shutil.rmtree(lock)
+            lock.mkdir()
+        else:
+            raise NightlyError("another nightly run is already active") from exc
+    owner.write_text(json.dumps({"pid": os.getpid(), "token": token}) + "\n", encoding="utf-8")
     try:
         yield
     finally:
-        lock.rmdir()
+        try:
+            data = json.loads(owner.read_text(encoding="utf-8"))
+        except (OSError, ValueError, json.JSONDecodeError):
+            data = None
+        if isinstance(data, dict) and data.get("token") == token:
+            owner.unlink(missing_ok=True)
+            lock.rmdir()
+
+
+def remove_stale_worktree(vault: Path, worktree: Path) -> None:
+    """Clear only the stable nightly worktree after holding the run lock."""
+    git(vault, "worktree", "remove", "--force", str(worktree), check=False)
+    shutil.rmtree(worktree, ignore_errors=True)
+    git(vault, "worktree", "prune", check=False)
 
 
 @dataclass
@@ -466,6 +518,7 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
         worktree = nightly_worktree_path(worktrees)
         session_file = state_dir / f"{run_id}.session.json"
         worktrees.mkdir(parents=True, exist_ok=True)
+        remove_stale_worktree(vault, worktree)
         git(vault, "worktree", "add", "--detach", str(worktree), baseline)
         # OpenCode's server-side tool processes do not inherit the adapter's
         # environment.  Keep this task input inside the isolated worktree so
@@ -475,9 +528,11 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
             json.dumps({"baseline": baseline, "raw_candidates": candidate_raw, "skipped_paths": skipped_paths}, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
-        bundle, bundle_manifest = prepare_tool_bundle(worktree)
+        bundle: Path | None = None
+        bundle_manifest: dict[str, bytes] = {}
         session: str | None = None
         try:
+            bundle, bundle_manifest = prepare_tool_bundle(worktree)
             session = run_agent(agent_command, worktree, session_file, context_file)
             assert_tool_bundle_intact(bundle, bundle_manifest)
             tracked_markdown_status(worktree, allow_internal_tools=True)
@@ -537,8 +592,9 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
             commit_report(vault, report, f"Nightly memory organization failed {datetime.now().astimezone().date().isoformat()}")
             return Outcome("failed", baseline, session, [], str(exc))
         finally:
-            remove_tool_bundle(worktree, bundle)
-            git(vault, "worktree", "remove", "--force", str(worktree), check=False)
+            if bundle is not None:
+                remove_tool_bundle(worktree, bundle)
+            remove_stale_worktree(vault, worktree)
             session_file.unlink(missing_ok=True)
 
 
