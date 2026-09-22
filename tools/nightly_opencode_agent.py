@@ -64,7 +64,9 @@ and vault-ops. Organize Inbox conservatively,
 maintain only the Raw candidates in .nightly-context.json (skip a Raw candidate
 whose diff is already only generated summary fields). Do not repair an existing
 Raw note outside that list, even if it fails validation. Validate only Raw notes
-created or modified during this run. Before ending, write {vault}/.nightly-operations.json as JSON with an
+created or modified during this run. The context's skipped_paths are explicitly
+marked nightly_maintenance: skip: do not edit, move, merge, delete, tag,
+summarize, or validate them. Before ending, write {vault}/.nightly-operations.json as JSON with an
 "operations" array. Add one item for each changed Markdown note other than the
 daily report: {{"path":"Raw/example.md","actions":["created"],"detail":"一句不超过 180 字的实际处理说明"}}.
 Actions may only be created, moved, merged, metadata_updated, inbox_removed, or

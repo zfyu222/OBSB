@@ -10,6 +10,7 @@ description: Create or edit Markdown notes in the formal Obsidian vault during a
 - Put uncategorized captures in `vault/InBox/`. Organized notes belong below `vault/Raw/项目`, `vault/Raw/领域`, or `vault/Raw/归档`.
 - Preserve sources, URLs, user-defined frontmatter, wikilinks, and attachment references. Never read or alter binary attachments except for deterministic orphan cleanup performed by the `note-deletion` workflow after an explicitly requested note deletion.
 - Prioritize the user's requested content change. For an ordinary interactive body edit, preserve existing frontmatter but do not rescan tags, regenerate recursive summaries, or repair unrelated metadata merely because the body changed; the nightly workflow maintains those fields later.
+- If the user asks for a note to be excluded from unattended maintenance, set or preserve `nightly_maintenance: skip`. Remove it only when the user asks to restore normal nightly maintenance.
 - If the user explicitly asks to organize, finalize, tag, summarize, or validate the note now, produce the fully organized Raw metadata and invoke `assign-tags` and `recursive-summary` as needed.
 - Use `python3 tools/vault_ops.py --vault vault move ...` for moves or renames. For a completed Inbox merge, edit the destination first and then use the `merge-remove` operation. Never replace these structural commands with `mv`, `rm`, or bulk search-and-replace.
 - Route standalone note deletion and backlink inspection through the `note-deletion` Skill and `vault-ops references/delete` commands.

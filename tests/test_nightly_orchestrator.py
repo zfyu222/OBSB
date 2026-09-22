@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from nightly_orchestrator import changed_paths, execute, nightly_worktree_path, snapshot_visible_state, tool_bundle_manifest, tracked_markdown_status, write_report  # noqa: E402
+from nightly_orchestrator import changed_paths, execute, nightly_worktree_path, raw_candidates, snapshot_visible_state, tool_bundle_manifest, tracked_markdown_status, validate, write_report  # noqa: E402
 
 
 class NightlyOrchestratorTests(unittest.TestCase):
@@ -66,6 +66,37 @@ class NightlyOrchestratorTests(unittest.TestCase):
     def test_nightly_worktree_has_a_stable_project_facing_path(self):
         root = Path("temporary-worktrees")
         self.assertEqual(nightly_worktree_path(root), root / "nightly")
+
+    def test_skip_metadata_excludes_raw_note_from_candidates_and_validation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            vault = self.vault(Path(temp))
+            previous = subprocess.run(["git", "-C", str(vault), "rev-parse", "HEAD"], text=True, capture_output=True, check=True).stdout.strip()
+            note = vault / "Raw/领域/base.md"
+            note.write_text("---\nnightly_maintenance: skip\n---\n持续记录", encoding="utf-8")
+            subprocess.run(["git", "-C", str(vault), "add", "Raw/领域/base.md"], check=True)
+            subprocess.run(["git", "-C", str(vault), "commit", "-m", "record update"], check=True, capture_output=True)
+            baseline = subprocess.run(["git", "-C", str(vault), "rev-parse", "HEAD"], text=True, capture_output=True, check=True).stdout.strip()
+            self.assertEqual(raw_candidates(vault, previous, baseline), [])
+            self.assertEqual(validate(vault, ["Raw/领域/base.md"]), [])
+
+    def test_skipped_record_is_not_sent_for_nightly_work_and_advances_baseline(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            vault = self.vault(root)
+            note = vault / "Raw/领域/base.md"
+            note.write_text("---\nnightly_maintenance: skip\n---\n宝宝午餐：米饭和蔬菜。", encoding="utf-8")
+            agent = root / "agent.py"
+            agent.write_text(
+                "import json, os\nfrom pathlib import Path\nroot=Path(os.environ['NIGHTLY_VAULT'])\n"
+                "context=json.loads((root/'.nightly-context.json').read_text(encoding='utf-8'))\n"
+                "assert context['raw_candidates'] == []\n"
+                "assert context['skipped_paths'] == ['Raw/领域/base.md']\n",
+                encoding="utf-8",
+            )
+            outcome = execute(vault, root / "worktrees", root / "state", f"{sys.executable} {agent}")
+            self.assertEqual(outcome.status, "no_changes", outcome.error)
+            self.assertIn("nightly_maintenance: skip", note.read_text(encoding="utf-8"))
+            self.assertEqual(list((vault / "Drived/整理日志").glob("*.md")), [])
 
     def test_tool_bundle_manifest_ignores_reproducible_python_cache(self):
         with tempfile.TemporaryDirectory() as temp:

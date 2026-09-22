@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from validate_vault import validate_note
+from validate_vault import split_note, validate_note
 
 
 ALLOWED_ROOTS = {"InBox", "Raw", "Drived"}
@@ -31,6 +31,8 @@ INTERNAL_TOOL_DIR = ".nightly-tools"
 INTERNAL_CONTEXT_FILE = ".nightly-context.json"
 INTERNAL_OPERATIONS_FILE = ".nightly-operations.json"
 NIGHTLY_WORKTREE_DIRECTORY = "nightly"
+NIGHTLY_MAINTENANCE_KEY = "nightly_maintenance"
+NIGHTLY_MAINTENANCE_SKIP = "skip"
 
 REPORT_SECTIONS = (
     ("created", "新建"),
@@ -185,11 +187,39 @@ def raw_candidates(vault: Path, previous: str | None, baseline: str) -> list[str
     candidates: list[str] = []
     summary_line = re.compile(r"summary_(?:final|[1-9][0-9]*):")
     for path in (item for item in names if item.endswith(".md")):
+        if skips_nightly_maintenance(vault / path):
+            continue
         diff = git(vault, "diff", "--unified=0", previous, baseline, "--", path).stdout.splitlines()
         changed = [line[1:].strip() for line in diff if line[:1] in {"+", "-"} and not line.startswith(("+++", "---"))]
         if any(not summary_line.fullmatch(line) and not summary_line.match(line) for line in changed):
             candidates.append(path)
     return sorted(candidates)
+
+
+def skips_nightly_maintenance(note: Path) -> bool:
+    """Return whether a note explicitly opts out of unattended maintenance.
+
+    Invalid YAML must not silently become an opt-out: the note will remain a
+    normal candidate and receive the usual validation feedback instead.
+    """
+    try:
+        metadata, _ = split_note(note.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError):
+        return False
+    return metadata.get(NIGHTLY_MAINTENANCE_KEY) == NIGHTLY_MAINTENANCE_SKIP
+
+
+def skipped_maintenance_paths(vault: Path) -> list[str]:
+    """List existing Markdown notes that must remain untouched this run."""
+    paths: list[str] = []
+    for root in ("InBox", "Raw"):
+        directory = vault / root
+        if not directory.is_dir():
+            continue
+        for note in directory.rglob("*.md"):
+            if skips_nightly_maintenance(note):
+                paths.append(note.relative_to(vault).as_posix())
+    return sorted(paths)
 
 
 def assert_allowed(paths: list[str]) -> None:
@@ -209,9 +239,16 @@ def validate(worktree: Path, paths: list[str]) -> list[str]:
     errors: list[str] = []
     for relative in sorted(path for path in paths if path.startswith("Raw/") and path.endswith(".md")):
         note = worktree / relative
-        if note.is_file():
+        if note.is_file() and not skips_nightly_maintenance(note):
             errors.extend(validate_note(note))
     return errors
+
+
+def assert_skipped_notes_unchanged(changes: list[str], skipped_paths: list[str]) -> None:
+    """Prevent the unattended agent from moving, editing, or deleting opt-outs."""
+    changed_opt_outs = sorted(set(changes) & set(skipped_paths))
+    if changed_opt_outs:
+        raise NightlyError("nightly task modified a note marked nightly_maintenance: skip: " + ", ".join(changed_opt_outs))
 
 
 def assert_raw_changes_are_in_scope(worktree: Path, baseline: str, changes: list[str], candidates: list[str]) -> None:
@@ -431,6 +468,7 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
     with exclusive_lock(state_dir):
         baseline = snapshot_visible_state(vault)
         candidate_raw = raw_candidates(vault, previous_successful_baseline(state_dir), baseline)
+        skipped_paths = skipped_maintenance_paths(vault)
         run_id = datetime.now().astimezone().strftime("nightly-%Y%m%d-%H%M%S")
         worktree = nightly_worktree_path(worktrees)
         session_file = state_dir / f"{run_id}.session.json"
@@ -441,7 +479,7 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
         # the session can read it without requesting an external directory.
         context_file = worktree / INTERNAL_CONTEXT_FILE
         context_file.write_text(
-            json.dumps({"baseline": baseline, "raw_candidates": candidate_raw}, ensure_ascii=False) + "\n",
+            json.dumps({"baseline": baseline, "raw_candidates": candidate_raw, "skipped_paths": skipped_paths}, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
         bundle, bundle_manifest = prepare_tool_bundle(worktree)
@@ -453,6 +491,7 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
             stage_managed(worktree)
             changes = changed_paths(worktree, baseline, staged=True)
             assert_allowed(changes)
+            assert_skipped_notes_unchanged(changes, skipped_paths)
             assert_raw_changes_are_in_scope(worktree, baseline, changes, candidate_raw)
             errors = validate(worktree, changes)
             for _ in range(2):
@@ -464,6 +503,7 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
                 stage_managed(worktree)
                 changes = changed_paths(worktree, baseline, staged=True)
                 assert_allowed(changes)
+                assert_skipped_notes_unchanged(changes, skipped_paths)
                 assert_raw_changes_are_in_scope(worktree, baseline, changes, candidate_raw)
                 errors = validate(worktree, changes)
             if errors:

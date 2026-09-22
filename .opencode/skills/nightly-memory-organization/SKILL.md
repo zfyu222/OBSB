@@ -19,7 +19,9 @@ orchestrator, never the formal vault.
    `.nightly-tools/vault_ops.py` with the current worktree as `--vault` for their
    respective deterministic duties.
 5. Do not edit `Assets/`, `.obsidian/`, secrets, runtime data or framework files.
-6. Do not edit an existing Raw note unless it is listed in `.nightly-context.json`.
+6. Do not edit a note listed in `.nightly-context.json` under `skipped_paths`:
+   it has `nightly_maintenance: skip` and is excluded from unattended work.
+   Do not edit an existing Raw note unless it is listed in `raw_candidates`.
    A pre-existing invalid Raw note outside that list must be reported as a gap,
    not repaired during this run.
 7. Before ending, run the validator against only Raw Markdown created or modified
