@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from nightly_orchestrator import execute, snapshot_visible_state, tracked_markdown_status  # noqa: E402
+from nightly_orchestrator import execute, snapshot_visible_state, tool_bundle_manifest, tracked_markdown_status  # noqa: E402
 
 
 class NightlyOrchestratorTests(unittest.TestCase):
@@ -62,6 +62,15 @@ class NightlyOrchestratorTests(unittest.TestCase):
             relative = "InBox/第一期 Windows 测试.md"
             (vault / relative).write_text("测试", encoding="utf-8")
             self.assertEqual(tracked_markdown_status(vault), [relative])
+
+    def test_tool_bundle_manifest_ignores_reproducible_python_cache(self):
+        with tempfile.TemporaryDirectory() as temp:
+            bundle = Path(temp)
+            (bundle / "tool.py").write_text("print('ok')", encoding="utf-8")
+            cache = bundle / "__pycache__"
+            cache.mkdir()
+            (cache / "tool.cpython-314.pyc").write_bytes(b"cache")
+            self.assertEqual(set(tool_bundle_manifest(bundle)), {"tool.py"})
 
     def test_failure_writes_report_without_applying_worktree_change(self):
         with tempfile.TemporaryDirectory() as temp:

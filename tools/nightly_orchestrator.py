@@ -228,7 +228,10 @@ def tool_bundle_manifest(bundle: Path) -> dict[str, bytes]:
     return {
         str(path.relative_to(bundle)): path.read_bytes()
         for path in sorted(bundle.rglob("*"))
-        if path.is_file()
+        # Python may generate this cache while an agent invokes a bundled
+        # validator.  It contains no task input and is deleted with the
+        # worktree; source files remain integrity-checked byte-for-byte.
+        if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc"
     }
 
 
