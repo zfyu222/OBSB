@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from nightly_orchestrator import changed_paths, execute, nightly_worktree_path, raw_candidates, snapshot_visible_state, tool_bundle_manifest, tracked_markdown_status, validate, write_report  # noqa: E402
+from nightly_orchestrator import changed_paths, execute, nightly_worktree_path, raw_candidates, read_operations, snapshot_visible_state, tool_bundle_manifest, tracked_markdown_status, validate, write_report  # noqa: E402
 
 
 class NightlyOrchestratorTests(unittest.TestCase):
@@ -120,12 +120,35 @@ class NightlyOrchestratorTests(unittest.TestCase):
                 session="session",
                 changes=[path],
                 error=None,
-                operations=[{"path": path, "actions": ["created", "metadata_updated"], "detail": "新建知识笔记并补齐标签和摘要。"}],
+                operations=[{"path": path, "actions": ["created", "metadata_updated"], "detail": "整理为测试主题笔记并补充检索摘要。"}],
             )
             content = report.read_text(encoding="utf-8")
             self.assertIn("## 笔记处理", content)
-            self.assertIn("[[Raw/领域/new]]（新建、更新元数据）：新建知识笔记并补齐标签和摘要。", content)
+            self.assertIn("[[Raw/领域/new]]：整理为测试主题笔记并补充检索摘要。", content)
             self.assertEqual(content.count("[[Raw/领域/new]]"), 1)
+            self.assertNotIn("（新建、更新元数据）", content)
+
+    def test_report_omits_removed_inbox_source_when_destination_describes_move(self):
+        with tempfile.TemporaryDirectory() as temp:
+            vault = self.vault(Path(temp))
+            source_path = "InBox/capture.md"
+            destination_path = "Raw/领域/capture.md"
+            source = vault / source_path
+            destination = vault / destination_path
+            source.write_text("capture", encoding="utf-8")
+            subprocess.run(["git", "-C", str(vault), "add", source_path], check=True)
+            subprocess.run(["git", "-C", str(vault), "commit", "-m", "capture"], check=True, capture_output=True)
+            baseline = subprocess.run(["git", "-C", str(vault), "rev-parse", "HEAD"], text=True, capture_output=True, check=True).stdout.strip()
+            source.rename(destination)
+            subprocess.run(["git", "-C", str(vault), "add", "-A"], check=True)
+            changes = changed_paths(vault, baseline, staged=True)
+            operations_path = vault / ".nightly-operations.json"
+            operations_path.write_text(
+                json.dumps({"operations": [{"path": destination_path, "actions": ["moved", "metadata_updated", "inbox_removed"], "detail": "整理为领域笔记并补充检索摘要。"}]}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            operations = read_operations(vault, baseline, changes)
+            self.assertEqual([item["path"] for item in operations], [destination_path])
 
     def test_changed_paths_keeps_the_removed_inbox_source_of_a_move(self):
         with tempfile.TemporaryDirectory() as temp:

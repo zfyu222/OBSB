@@ -34,15 +34,8 @@ NIGHTLY_WORKTREE_DIRECTORY = "nightly"
 NIGHTLY_MAINTENANCE_KEY = "nightly_maintenance"
 NIGHTLY_MAINTENANCE_SKIP = "skip"
 
-REPORT_ACTION_LABELS = {
-    "created": "新建",
-    "moved": "移动",
-    "merged": "合并",
-    "metadata_updated": "更新元数据",
-    "inbox_removed": "移除 Inbox 来源",
-    "deleted": "删除",
-}
-REPORT_ACTIONS = set(REPORT_ACTION_LABELS)
+REPORT_ACTIONS = {"created", "moved", "merged", "metadata_updated", "inbox_removed", "deleted"}
+REPORT_DETAIL_MAX = 100
 
 
 class NightlyError(RuntimeError):
@@ -316,10 +309,15 @@ def read_operations(vault: Path, baseline: str, changes: list[str]) -> list[dict
             ):
                 raise NightlyError("nightly operations journal contains an invalid operation")
             concise = " ".join(detail.split())
-            if not concise or len(concise) > 180:
-                raise NightlyError("nightly operations journal detail must be 1-180 characters")
+            if not concise or len(concise) > REPORT_DETAIL_MAX:
+                raise NightlyError(f"nightly operations journal detail must be 1-{REPORT_DETAIL_MAX} characters")
             supplied[path] = {"path": path, "actions": list(dict.fromkeys(actions)), "detail": concise}
-    return [supplied.get(path, fallback_operation(vault, baseline, path)) for path in changes if not path.startswith("Drived/整理日志/")]
+    return [
+        supplied.get(path, fallback_operation(vault, baseline, path))
+        for path in changes
+        if not path.startswith("Drived/整理日志/")
+        and not (path.startswith("InBox/") and not (vault / path).is_file())
+    ]
 
 
 def write_report(vault: Path, *, status: str, baseline: str, session: str | None, changes: list[str], error: str | None, operations: list[dict[str, object]] | None = None) -> Path:
@@ -336,8 +334,7 @@ def write_report(vault: Path, *, status: str, baseline: str, session: str | None
     if operations:
         lines.extend(["", "## 笔记处理", ""])
         for item in operations:
-            action_names = "、".join(REPORT_ACTION_LABELS[action] for action in item["actions"])
-            lines.append(f"- {report_link(str(item['path']), vault)}（{action_names}）：{item['detail']}")
+            lines.append(f"- {report_link(str(item['path']), vault)}：{item['detail']}")
     elif changes:
         lines.extend(["", "## 检测到的 Markdown 变更", ""])
         lines.extend(f"- `{path}`" for path in changes)

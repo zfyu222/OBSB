@@ -32,6 +32,10 @@ orchestrator, never the formal vault.
    each changed Markdown note other than the daily report, with its `path`, one
    or more actions from `created`, `moved`, `merged`, `metadata_updated`,
    `inbox_removed`, `deleted`, and a factual one-sentence `detail` of at most
-   180 characters. Do not put note content in this file. The orchestrator uses
+   100 characters. Write the detail as a natural, concise synthesis of what was
+   meaningfully done to that note, not as a list of internal actions or YAML
+   fields. A move already implies removal from Inbox, so do not state source
+   removal separately; omit routine unchanged facts. Do not put note content
+   in this file. The orchestrator uses
    it only to write the human-readable report, then independently validates and
    applies results.

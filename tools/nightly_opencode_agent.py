@@ -69,10 +69,13 @@ this run. The context's skipped_paths are explicitly
 marked nightly_maintenance: skip: do not edit, move, merge, delete, tag,
 summarize, or validate them. Before ending, write {vault}/.nightly-operations.json as JSON with an
 "operations" array. Add one item for each changed Markdown note other than the
-daily report: {{"path":"Raw/example.md","actions":["created"],"detail":"一句不超过 180 字的实际处理说明"}}.
+daily report: {{"path":"Raw/example.md","actions":["created"],"detail":"一句不超过 100 字的自然中文处理概括"}}.
 Actions may only be created, moved, merged, metadata_updated, inbox_removed, or
 deleted. This audit journal is the sole permitted non-Markdown task file; do not
-put note content in it. Explain the semantic result briefly; the external orchestrator will
+put note content in it. The detail must synthesize what was meaningfully done to
+the note, not enumerate internal action names or metadata field names. A move
+already implies removal from Inbox, so do not mention source removal separately.
+Omit routine unchanged facts. The external orchestrator will
 validate and apply it. Read the Raw candidate list from
 {vault}/.nightly-context.json; do not look for it outside this worktree."""
 
