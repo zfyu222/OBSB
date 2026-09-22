@@ -173,13 +173,30 @@ def assert_allowed(paths: list[str]) -> None:
             raise NightlyError(f"nightly task changed a forbidden path: {path}")
 
 
-def validate(worktree: Path) -> list[str]:
+def validate(worktree: Path, paths: list[str]) -> list[str]:
+    """Validate only Raw notes produced or maintained by this run.
+
+    A historical Raw note outside the candidate set is not silently rewritten
+    by an unattended run.  Its pre-existing metadata debt must therefore not
+    prevent a valid Inbox organization from being applied.
+    """
     errors: list[str] = []
-    raw = worktree / "Raw"
-    if raw.is_dir():
-        for note in sorted(raw.rglob("*.md")):
+    for relative in sorted(path for path in paths if path.startswith("Raw/") and path.endswith(".md")):
+        note = worktree / relative
+        if note.is_file():
             errors.extend(validate_note(note))
     return errors
+
+
+def assert_raw_changes_are_in_scope(worktree: Path, baseline: str, changes: list[str], candidates: list[str]) -> None:
+    """Permit new Raw notes and only candidate-based edits to existing Raw."""
+    permitted = set(candidates)
+    for relative in changes:
+        if not relative.startswith("Raw/") or not relative.endswith(".md"):
+            continue
+        existed = git(worktree, "cat-file", "-e", f"{baseline}:{relative}", check=False).returncode == 0
+        if existed and relative not in permitted:
+            raise NightlyError(f"nightly task modified a Raw note outside this run's candidate set: {relative}")
 
 
 def write_report(vault: Path, *, status: str, baseline: str, session: str | None, changes: list[str], error: str | None) -> Path:
@@ -313,6 +330,7 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
         raise NightlyError("vault is not an initialized Git repository")
     with exclusive_lock(state_dir):
         baseline = snapshot_visible_state(vault)
+        candidate_raw = raw_candidates(vault, previous_successful_baseline(state_dir), baseline)
         run_id = datetime.now().astimezone().strftime("nightly-%Y%m%d-%H%M%S")
         worktree = worktrees / run_id
         session_file = state_dir / f"{run_id}.session.json"
@@ -323,7 +341,7 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
         # the session can read it without requesting an external directory.
         context_file = worktree / INTERNAL_CONTEXT_FILE
         context_file.write_text(
-            json.dumps({"baseline": baseline, "raw_candidates": raw_candidates(vault, previous_successful_baseline(state_dir), baseline)}, ensure_ascii=False) + "\n",
+            json.dumps({"baseline": baseline, "raw_candidates": candidate_raw}, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
         bundle, bundle_manifest = prepare_tool_bundle(worktree)
@@ -335,7 +353,8 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
             stage_managed(worktree)
             changes = changed_paths(worktree, baseline, staged=True)
             assert_allowed(changes)
-            errors = validate(worktree)
+            assert_raw_changes_are_in_scope(worktree, baseline, changes, candidate_raw)
+            errors = validate(worktree, changes)
             for _ in range(2):
                 if not errors:
                     break
@@ -345,7 +364,8 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
                 stage_managed(worktree)
                 changes = changed_paths(worktree, baseline, staged=True)
                 assert_allowed(changes)
-                errors = validate(worktree)
+                assert_raw_changes_are_in_scope(worktree, baseline, changes, candidate_raw)
+                errors = validate(worktree, changes)
             if errors:
                 raise NightlyError("validation failed:\n" + "\n".join(errors))
             if not changes:

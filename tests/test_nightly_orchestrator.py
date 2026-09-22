@@ -36,7 +36,7 @@ class NightlyOrchestratorTests(unittest.TestCase):
                 encoding="utf-8",
             )
             outcome = execute(vault, root / "worktrees", root / "state", f"{sys.executable} {agent}")
-            self.assertEqual(outcome.status, "success")
+            self.assertEqual(outcome.status, "success", outcome.error)
             self.assertTrue((vault / "InBox/capture.md").exists())
             self.assertTrue((vault / "Drived/整理日志").glob("*.md"))
             self.assertEqual(list((root / "worktrees").iterdir()), [])
@@ -91,6 +91,25 @@ class NightlyOrchestratorTests(unittest.TestCase):
             self.assertEqual(list((vault / "Drived/整理日志").glob("*.md")), [])
             commits = subprocess.run(["git", "-C", str(vault), "rev-list", "--count", "HEAD"], text=True, capture_output=True, check=True)
             self.assertEqual(commits.stdout.strip(), "1")
+
+    def test_preexisting_non_candidate_raw_validation_error_does_not_block_inbox_change(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            vault = self.vault(root)
+            old = vault / "Raw/领域/legacy.md"
+            old.write_text("---\ntags: [旧]\nsummary_final: 旧摘要\n---\n历史正文", encoding="utf-8")
+            subprocess.run(["git", "-C", str(vault), "add", "Raw/领域/legacy.md"], check=True)
+            subprocess.run(["git", "-C", str(vault), "commit", "-m", "legacy"], check=True, capture_output=True)
+            agent = root / "agent.py"
+            agent.write_text(
+                "import os\nfrom pathlib import Path\nroot=Path(os.environ['NIGHTLY_VAULT'])\n"
+                "(root/'InBox').mkdir(exist_ok=True)\n"
+                "(root/'InBox'/'capture.md').write_text('capture', encoding='utf-8')\n",
+                encoding="utf-8",
+            )
+            outcome = execute(vault, root / "worktrees", root / "state", f"{sys.executable} {agent}")
+            self.assertEqual(outcome.status, "success", outcome.error)
+            self.assertTrue((vault / "InBox/capture.md").is_file())
 
     def test_validation_error_is_returned_for_one_correction_round(self):
         with tempfile.TemporaryDirectory() as temp:

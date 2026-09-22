@@ -61,8 +61,9 @@ read attachments. First read {tool_root}/nightly-memory-organization.md. Use onl
 the deterministic tools in {tool_root} with --vault {vault} for tags, validation
 and vault-ops. Organize Inbox conservatively,
 maintain only the Raw candidates in .nightly-context.json (skip a Raw candidate
-whose diff is already only generated summary fields), and finish by running the
-validator. Explain the semantic result briefly; the external orchestrator will
+whose diff is already only generated summary fields). Do not repair an existing
+Raw note outside that list, even if it fails validation. Validate only Raw notes
+created or modified during this run. Explain the semantic result briefly; the external orchestrator will
 validate and apply it. Read the Raw candidate list from
 {vault}/.nightly-context.json; do not look for it outside this worktree."""
 
