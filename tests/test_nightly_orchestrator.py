@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from nightly_orchestrator import execute, snapshot_visible_state, tool_bundle_manifest, tracked_markdown_status  # noqa: E402
+from nightly_orchestrator import changed_paths, execute, snapshot_visible_state, tool_bundle_manifest, tracked_markdown_status, write_report  # noqa: E402
 
 
 class NightlyOrchestratorTests(unittest.TestCase):
@@ -71,6 +71,40 @@ class NightlyOrchestratorTests(unittest.TestCase):
             cache.mkdir()
             (cache / "tool.cpython-314.pyc").write_bytes(b"cache")
             self.assertEqual(set(tool_bundle_manifest(bundle)), {"tool.py"})
+
+    def test_report_groups_each_note_with_a_concise_processing_description(self):
+        with tempfile.TemporaryDirectory() as temp:
+            vault = self.vault(Path(temp))
+            path = "Raw/领域/new.md"
+            (vault / path).write_text("---\ntags: [测试]\nsummary_final: 新笔记\n---\n新笔记", encoding="utf-8")
+            baseline = subprocess.run(["git", "-C", str(vault), "rev-parse", "HEAD"], text=True, capture_output=True, check=True).stdout.strip()
+            report = write_report(
+                vault,
+                status="成功",
+                baseline=baseline,
+                session="session",
+                changes=[path],
+                error=None,
+                operations=[{"path": path, "actions": ["created", "metadata_updated"], "detail": "新建知识笔记并补齐标签和摘要。"}],
+            )
+            content = report.read_text(encoding="utf-8")
+            self.assertIn("## 笔记处理", content)
+            self.assertIn("### 新建", content)
+            self.assertIn("[[Raw/领域/new]]：新建知识笔记并补齐标签和摘要。", content)
+            self.assertIn("### 元数据更新", content)
+
+    def test_changed_paths_keeps_the_removed_inbox_source_of_a_move(self):
+        with tempfile.TemporaryDirectory() as temp:
+            vault = self.vault(Path(temp))
+            source = vault / "InBox/capture.md"
+            destination = vault / "Raw/领域/capture.md"
+            source.write_text("capture", encoding="utf-8")
+            subprocess.run(["git", "-C", str(vault), "add", "InBox/capture.md"], check=True)
+            subprocess.run(["git", "-C", str(vault), "commit", "-m", "capture"], check=True, capture_output=True)
+            baseline = subprocess.run(["git", "-C", str(vault), "rev-parse", "HEAD"], text=True, capture_output=True, check=True).stdout.strip()
+            source.rename(destination)
+            subprocess.run(["git", "-C", str(vault), "add", "-A"], check=True)
+            self.assertEqual(changed_paths(vault, baseline, staged=True), ["InBox/capture.md", "Raw/领域/capture.md"])
 
     def test_failure_writes_report_without_applying_worktree_change(self):
         with tempfile.TemporaryDirectory() as temp:

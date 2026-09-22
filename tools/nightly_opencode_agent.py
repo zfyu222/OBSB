@@ -64,7 +64,12 @@ and vault-ops. Organize Inbox conservatively,
 maintain only the Raw candidates in .nightly-context.json (skip a Raw candidate
 whose diff is already only generated summary fields). Do not repair an existing
 Raw note outside that list, even if it fails validation. Validate only Raw notes
-created or modified during this run. Explain the semantic result briefly; the external orchestrator will
+created or modified during this run. Before ending, write {vault}/.nightly-operations.json as JSON with an
+"operations" array. Add one item for each changed Markdown note other than the
+daily report: {{"path":"Raw/example.md","actions":["created"],"detail":"一句不超过 180 字的实际处理说明"}}.
+Actions may only be created, moved, merged, metadata_updated, inbox_removed, or
+deleted. This audit journal is the sole permitted non-Markdown task file; do not
+put note content in it. Explain the semantic result briefly; the external orchestrator will
 validate and apply it. Read the Raw candidate list from
 {vault}/.nightly-context.json; do not look for it outside this worktree."""
 

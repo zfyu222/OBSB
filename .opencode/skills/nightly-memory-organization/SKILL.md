@@ -23,6 +23,11 @@ orchestrator, never the formal vault.
    A pre-existing invalid Raw note outside that list must be reported as a gap,
    not repaired during this run.
 7. Before ending, run the validator against only Raw Markdown created or modified
-   during this run, and state concisely which
-   Inbox items were created, moved, merged, skipped or failed. The orchestrator
-   independently validates and applies results.
+   during this run. Then create the permitted task audit file
+   `.nightly-operations.json`: `{"operations":[...]}`. Include one item for
+   each changed Markdown note other than the daily report, with its `path`, one
+   or more actions from `created`, `moved`, `merged`, `metadata_updated`,
+   `inbox_removed`, `deleted`, and a factual one-sentence `detail` of at most
+   180 characters. Do not put note content in this file. The orchestrator uses
+   it only to write the human-readable report, then independently validates and
+   applies results.
