@@ -59,6 +59,7 @@ class NightlyOpenCodeAdapterTests(unittest.TestCase):
         self.assertIn(".nightly-tools/nightly-memory-organization.md", prompt)
         self.assertIn("Never use /tmp", prompt)
         self.assertIn("nightly_maintenance: skip", prompt)
+        self.assertIn("do not run Git commands", prompt)
         self.assertNotIn("/workspace/tools", prompt)
 
     def test_existing_session_is_reused_without_creating_another(self):

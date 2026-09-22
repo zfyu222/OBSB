@@ -61,10 +61,11 @@ built-in Markdown read/write tools directly against this worktree. Search before
 creating notes; preserve URL text and never fetch URLs or read attachments. First read {tool_root}/nightly-memory-organization.md. Use only
 the deterministic tools in {tool_root} with --vault {vault} for tags, validation
 and vault-ops. Organize Inbox conservatively,
-maintain only the Raw candidates in .nightly-context.json (skip a Raw candidate
-whose diff is already only generated summary fields). Do not repair an existing
-Raw note outside that list, even if it fails validation. Validate only Raw notes
-created or modified during this run. The context's skipped_paths are explicitly
+maintain only the Raw candidates in .nightly-context.json. The orchestrator has
+already filtered summary-only changes: do not run Git commands or inspect Git
+history/diffs yourself. Do not repair an existing Raw note outside that list,
+even if it fails validation. Validate only Raw notes created or modified during
+this run. The context's skipped_paths are explicitly
 marked nightly_maintenance: skip: do not edit, move, merge, delete, tag,
 summarize, or validate them. Before ending, write {vault}/.nightly-operations.json as JSON with an
 "operations" array. Add one item for each changed Markdown note other than the
