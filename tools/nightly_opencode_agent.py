@@ -55,8 +55,9 @@ def initial_prompt(vault: Path) -> str:
 
 Never read or edit the formal vault, framework files, Assets, .obsidian, secrets,
 runtime or any path outside this worktree. Read and modify Markdown only under
-{vault}/InBox, {vault}/Raw and {vault}/Drived. Create missing Markdown folders if
-needed. Never use /tmp, Git history, or an intermediate scratch file: use the
+{vault}/InBox and {vault}/Raw. Do not create or edit any file under
+{vault}/Drived/整理日志: the deterministic orchestrator is the sole report writer.
+Create missing Markdown folders if needed. Never use /tmp, Git history, or an intermediate scratch file: use the
 built-in Markdown read/write tools directly against this worktree. Search before
 creating notes; preserve URL text and never fetch URLs or read attachments. First read {tool_root}/nightly-memory-organization.md. Use only
 the deterministic tools in {tool_root} with --vault {vault} for tags, validation

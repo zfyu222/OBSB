@@ -45,6 +45,24 @@ class NightlyOrchestratorTests(unittest.TestCase):
             state = json.loads((root / "state/nightly-state.json").read_text(encoding="utf-8"))
             self.assertEqual(state["baseline"], outcome.baseline)
 
+    def test_agent_written_report_is_rejected_and_never_applied(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            vault = self.vault(root)
+            agent = root / "agent.py"
+            agent.write_text(
+                "import os\nfrom pathlib import Path\nroot=Path(os.environ['NIGHTLY_VAULT'])\n"
+                "reports=root/'Drived/整理日志'\nreports.mkdir(parents=True, exist_ok=True)\n"
+                "(reports/'agent-report.md').write_text('# 不应由 Agent 写入', encoding='utf-8')\n",
+                encoding="utf-8",
+            )
+            outcome = execute(vault, root / "worktrees", root / "state", f"{sys.executable} {agent}")
+            self.assertEqual(outcome.status, "failed")
+            self.assertIn("must not create or edit organization reports", outcome.error or "")
+            reports = list((vault / "Drived/整理日志").glob("*.md"))
+            self.assertEqual(len(reports), 1)
+            self.assertNotEqual(reports[0].name, "agent-report.md")
+
     def test_snapshot_allows_only_the_required_root_gitignore(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

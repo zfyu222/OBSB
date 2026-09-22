@@ -259,6 +259,13 @@ def assert_raw_changes_are_in_scope(worktree: Path, baseline: str, changes: list
             raise NightlyError(f"nightly task modified a Raw note outside this run's candidate set: {relative}")
 
 
+def assert_agent_did_not_write_reports(changes: list[str]) -> None:
+    """Reports are deterministic run records and belong exclusively to the orchestrator."""
+    reports = [path for path in changes if path.startswith("Drived/整理日志/")]
+    if reports:
+        raise NightlyError("nightly agent must not create or edit organization reports: " + ", ".join(reports))
+
+
 def report_link(path: str, vault: Path) -> str:
     """Return an Obsidian link for extant notes, otherwise a literal path."""
     candidate = vault / path
@@ -543,6 +550,7 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
             stage_managed(worktree)
             changes = changed_paths(worktree, baseline, staged=True)
             assert_allowed(changes)
+            assert_agent_did_not_write_reports(changes)
             assert_skipped_notes_unchanged(changes, skipped_paths)
             assert_raw_changes_are_in_scope(worktree, baseline, changes, candidate_raw)
             errors = validate(worktree, changes)
@@ -555,6 +563,7 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
                 stage_managed(worktree)
                 changes = changed_paths(worktree, baseline, staged=True)
                 assert_allowed(changes)
+                assert_agent_did_not_write_reports(changes)
                 assert_skipped_notes_unchanged(changes, skipped_paths)
                 assert_raw_changes_are_in_scope(worktree, baseline, changes, candidate_raw)
                 errors = validate(worktree, changes)

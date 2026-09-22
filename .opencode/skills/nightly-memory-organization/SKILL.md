@@ -26,7 +26,8 @@ orchestrator, never the formal vault.
    Do not edit an existing Raw note unless it is listed in `raw_candidates`.
    A pre-existing invalid Raw note outside that list must be reported as a gap,
    not repaired during this run.
-7. Before ending, run the validator against only Raw Markdown created or modified
+7. Do not create or modify anything under `Drived/整理日志/`: the deterministic
+   orchestrator is the sole writer of the human-readable report. Before ending, run the validator against only Raw Markdown created or modified
    during this run. Then create the permitted task audit file
    `.nightly-operations.json`: `{"operations":[...]}`. Include one item for
    each changed Markdown note other than the daily report, with its `path`, one
