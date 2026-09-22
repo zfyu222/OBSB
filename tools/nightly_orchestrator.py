@@ -115,14 +115,16 @@ def visible_server_state_status(vault: Path) -> list[str]:
     return paths
 
 
-def snapshot_visible_state(vault: Path) -> str:
+def snapshot_visible_state(
+    vault: Path, message: str = "Technical server-state snapshot before nightly organization"
+) -> str:
     visible_server_state_status(vault)
     stage_managed(vault)
     if (vault / ".gitignore").is_file():
         git(vault, "add", "--", ".gitignore")
     staged = git(vault, "diff", "--cached", "--quiet", check=False)
     if staged.returncode == 1:
-        git(vault, "commit", "-m", "Technical server-state snapshot before nightly organization")
+        git(vault, "commit", "-m", message)
     elif staged.returncode != 0:
         raise NightlyError("could not inspect staged server state")
     return git(vault, "rev-parse", "HEAD").stdout.strip()
