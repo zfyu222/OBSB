@@ -3,6 +3,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from unittest.mock import patch
 from pathlib import Path
 
@@ -128,6 +129,22 @@ class NightlyOrchestratorTests(unittest.TestCase):
             self.assertIn("[[Raw/领域/new]]：整理为测试主题笔记并补充检索摘要。", content)
             self.assertEqual(content.count("[[Raw/领域/new]]"), 1)
             self.assertNotIn("（新建、更新元数据）", content)
+
+    def test_each_report_has_its_own_timestamped_filename_and_runtime(self):
+        with tempfile.TemporaryDirectory() as temp:
+            vault = self.vault(Path(temp))
+            baseline = subprocess.run(["git", "-C", str(vault), "rev-parse", "HEAD"], text=True, capture_output=True, check=True).stdout.strip()
+            first = write_report(
+                vault, status="成功", baseline=baseline, session="session", changes=[], error=None,
+                run_at=datetime(2026, 9, 22, 3, 1, 2, tzinfo=timezone.utc),
+            )
+            second = write_report(
+                vault, status="成功", baseline=baseline, session="session", changes=[], error=None,
+                run_at=datetime(2026, 9, 22, 3, 1, 3, tzinfo=timezone.utc),
+            )
+            self.assertEqual(first.name, "2026-09-22-030102.md")
+            self.assertEqual(second.name, "2026-09-22-030103.md")
+            self.assertIn("运行时间：2026-09-22 03:01:02 +0000", first.read_text(encoding="utf-8"))
 
     def test_report_omits_removed_inbox_source_when_destination_describes_move(self):
         with tempfile.TemporaryDirectory() as temp:

@@ -324,13 +324,16 @@ def read_operations(vault: Path, baseline: str, changes: list[str]) -> list[dict
     ]
 
 
-def write_report(vault: Path, *, status: str, baseline: str, session: str | None, changes: list[str], error: str | None, operations: list[dict[str, object]] | None = None) -> Path:
-    day = datetime.now().astimezone().date().isoformat()
-    report = vault / "Drived" / "整理日志" / f"{day}.md"
+def write_report(vault: Path, *, status: str, baseline: str, session: str | None, changes: list[str], error: str | None, operations: list[dict[str, object]] | None = None, run_at: datetime | None = None) -> Path:
+    timestamp = run_at if run_at is not None else datetime.now().astimezone()
+    report_stamp = timestamp.strftime("%Y-%m-%d-%H%M%S")
+    display_time = timestamp.strftime("%Y-%m-%d %H:%M:%S %z")
+    report = vault / "Drived" / "整理日志" / f"{report_stamp}.md"
     report.parent.mkdir(parents=True, exist_ok=True)
     lines = [
-        f"# 夜间整理报告 {day}",
+        f"# 记忆整理报告 {display_time}",
         "",
+        f"- 运行时间：{display_time}",
         f"- 状态：{status}",
         f"- 开始基准：`{baseline}`",
         f"- OpenCode Session：{session or '未启动'}",
@@ -511,10 +514,11 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
     if not (vault / ".git").exists():
         raise NightlyError("vault is not an initialized Git repository")
     with exclusive_lock(state_dir):
+        run_at = datetime.now().astimezone()
         baseline = snapshot_visible_state(vault)
         candidate_raw = raw_candidates(vault, previous_successful_baseline(state_dir), baseline)
         skipped_paths = skipped_maintenance_paths(vault)
-        run_id = datetime.now().astimezone().strftime("nightly-%Y%m%d-%H%M%S")
+        run_id = run_at.strftime("nightly-%Y%m%d-%H%M%S")
         worktree = nightly_worktree_path(worktrees)
         session_file = state_dir / f"{run_id}.session.json"
         worktrees.mkdir(parents=True, exist_ok=True)
@@ -564,7 +568,7 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
             # The agent's journal supplies concise semantic descriptions; Git
             # fills any omitted changed path with a conservative description.
             operations = read_operations(worktree, baseline, changes)
-            report = write_report(worktree, status="成功", baseline=baseline, session=session, changes=changes, error=None, operations=operations)
+            report = write_report(worktree, status="成功", baseline=baseline, session=session, changes=changes, error=None, operations=operations, run_at=run_at)
             git(worktree, "add", "--", str(report.relative_to(worktree)))
             changes = changed_paths(worktree, baseline, staged=True)
             assert_allowed(changes)
@@ -583,13 +587,13 @@ def execute(vault: Path, worktrees: Path, state_dir: Path, agent_command: str) -
             applied = subprocess.run(["git", "-C", str(vault), "apply", "--index", "--binary", "-"], input=patch, text=True, encoding="utf-8", capture_output=True)
             if applied.returncode:
                 raise NightlyError("could not apply validated worktree patch: " + applied.stderr.strip())
-            git(vault, "commit", "-m", f"Nightly memory organization {datetime.now().astimezone().date().isoformat()}")
+            git(vault, "commit", "-m", f"Nightly memory organization {run_at.strftime('%Y-%m-%d %H:%M:%S')}")
             new_baseline = git(vault, "rev-parse", "HEAD").stdout.strip()
             (state_dir / "nightly-state.json").write_text(json.dumps({"baseline": new_baseline}, ensure_ascii=False) + "\n", encoding="utf-8")
             return Outcome("success", new_baseline, session, changes)
         except NightlyError as exc:
-            report = write_report(vault, status="失败", baseline=baseline, session=session, changes=[], error=str(exc))
-            commit_report(vault, report, f"Nightly memory organization failed {datetime.now().astimezone().date().isoformat()}")
+            report = write_report(vault, status="失败", baseline=baseline, session=session, changes=[], error=str(exc), run_at=run_at)
+            commit_report(vault, report, f"Nightly memory organization failed {run_at.strftime('%Y-%m-%d %H:%M:%S')}")
             return Outcome("failed", baseline, session, [], str(exc))
         finally:
             if bundle is not None:
