@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from nightly_orchestrator import changed_paths, execute, exclusive_lock, nightly_worktree_path, raw_candidates, read_operations, snapshot_visible_state, tool_bundle_manifest, tracked_markdown_status, validate, write_report  # noqa: E402
+from nightly_orchestrator import changed_paths, execute, exclusive_lock, nightly_worktree_path, prepare_tool_bundle, raw_candidates, read_operations, snapshot_visible_state, tool_bundle_manifest, tracked_markdown_status, validate, write_report  # noqa: E402
 
 
 class NightlyOrchestratorTests(unittest.TestCase):
@@ -126,6 +126,14 @@ class NightlyOrchestratorTests(unittest.TestCase):
             cache.mkdir()
             (cache / "tool.cpython-314.pyc").write_bytes(b"cache")
             self.assertEqual(set(tool_bundle_manifest(bundle)), {"tool.py"})
+
+    def test_full_organization_receives_detailed_rules(self):
+        with tempfile.TemporaryDirectory() as temp:
+            bundle, manifest = prepare_tool_bundle(Path(temp))
+            rules = (bundle / "nightly-rules.md").read_text(encoding="utf-8")
+            self.assertIn("summary_final", rules)
+            self.assertIn("nightly_maintenance: skip", rules)
+            self.assertEqual(manifest["nightly-rules.md"].decode("utf-8"), rules)
 
     def test_report_groups_each_note_with_a_concise_processing_description(self):
         with tempfile.TemporaryDirectory() as temp:

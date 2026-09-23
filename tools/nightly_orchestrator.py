@@ -390,7 +390,7 @@ def prepare_tool_bundle(worktree: Path) -> tuple[Path, dict[str, bytes]]:
         "nightly-memory-organization.md": source_skill,
         # The worktree cannot read the framework checkout.  This is the
         # authoritative rule set copied in with the deterministic helpers.
-        "nightly-rules.md": source_root / "AGENTS.md",
+        "nightly-rules.md": source_root / "docs" / "知识库维护规则.md",
     }
     if not all(path.is_file() for path in files.values()):
         raise NightlyError("nightly tool bundle source is incomplete")
