@@ -1,0 +1,24 @@
+.obsb-chat { display: flex; flex-direction: column; gap: 10px; height: 100%; padding: 12px !important; min-width: 0; }
+.obsb-toolbar, .obsb-session-bar, .obsb-actions, .obsb-context { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.obsb-toolbar strong { margin-right: auto; }
+.obsb-session-bar select { flex: 1; min-width: 80px; max-width: 100%; }
+.obsb-status, .obsb-shortcut { font-size: var(--font-ui-small); color: var(--text-muted); }
+.obsb-messages { flex: 1; overflow-y: auto; min-height: 80px; overscroll-behavior: contain; }
+.obsb-message { margin: 0 0 16px; padding: 12px; border-radius: 10px; background: var(--background-secondary); overflow-wrap: anywhere; }
+.obsb-user { border-left: 3px solid var(--interactive-accent); }
+.obsb-role { font-size: var(--font-ui-small); color: var(--text-muted); margin-bottom: 6px; }
+.obsb-body > :first-child { margin-top: 0; }
+.obsb-body > :last-child { margin-bottom: 0; }
+.obsb-body pre { overflow: auto; }
+.obsb-body a { cursor: pointer; }
+.obsb-tool { font-size: var(--font-ui-small); color: var(--text-muted); margin-top: 6px; }
+.obsb-error { color: var(--text-error); }
+.obsb-composer { flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; }
+.obsb-composer textarea { width: 100%; resize: vertical; min-height: 80px; max-height: 35vh; }
+.obsb-context { color: var(--text-accent); font-size: var(--font-ui-small); overflow-wrap: anywhere; }
+.obsb-permissions { max-height: 25vh; overflow: auto; }
+.obsb-permission { border: 1px solid var(--background-modifier-border); border-radius: 8px; padding: 10px; }
+.obsb-permission pre { white-space: pre-wrap; font-size: var(--font-ui-small); }
+.obsb-shortcut { margin-left: auto; }
+.is-mobile .obsb-chat button { min-height: 36px; }
+.is-mobile .obsb-shortcut { display: none; }

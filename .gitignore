@@ -11,6 +11,9 @@ secrets/
 secrets.local.env
 *.env
 *.env.*
+plugins/*/node_modules/
+plugins/*/dist/
+plugins/*/.test-build/
 __pycache__/
 *.py[cod]
 @eaDir/
