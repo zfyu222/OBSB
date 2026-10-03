@@ -1,13 +1,15 @@
 ---
 name: knowledge-qa
-description: Answer questions from this Obsidian vault using filename, body, YAML tag, and summary searches with precise wikilink citations. Use for read-only knowledge-base questions; do not use general model knowledge as if it came from the vault.
+description: Default workflow for everyday knowledge questions, personal recall, explanations, and advice in this workspace, even when the user does not mention notes or the vault. Search vault Markdown before answering, including when the model already knows an answer. Cite precise wikilinks and separate note evidence from inference and general knowledge. Skip only for an explicit request not to search notes, casual conversation, or framework-specific work.
 ---
 
 # Knowledge Q&A
 
-1. Search filenames and text with `rg`, including `tags`, `summary_1...summary_n`, and `summary_final`, before reading candidate notes.
-2. Read only relevant Markdown bodies. Do not open attachments or fetch URLs found in notes.
-3. Label each material statement as one of: **笔记内容**, **原文摘录**, **AI 推断**, or **知识库未覆盖**.
-4. Put an Obsidian wikilink beside every material vault-based claim. Prefer an existing block link, then a heading link, then the whole note: `[[Raw/领域/example#heading|label]]`.
-5. For every inference, list the supporting note locations. Keep verbatim excerpts short and exact.
-6. Do not modify notes merely to create block IDs or improve citations during a read-only request.
+1. Treat everyday questions as vault-first by default. Do not require phrases such as “查笔记” or “根据知识库”, and do not skip retrieval because you recognize the topic or remember an earlier answer. For follow-up questions, already-read relevant notes in the current conversation may support an answer; search again when the topic changes or the existing evidence is insufficient.
+2. Actually search filenames and text with `rg` (or available file-search tools), restricted to vault Markdown and excluding `Assets/` and `.obsidian/`. Include `InBox/` and `Raw/`, filenames, body text, YAML `tags`, aliases, `summary_1...summary_n`, and `summary_final`. Use short topic keywords rather than only the user's full sentence. For example: `rg --files vault/InBox vault/Raw -g '*.md'` and `rg -n -i -g '*.md' -e '关键词' -e '同义词' vault/InBox vault/Raw`. Do not use framework docs as substitutes for note evidence.
+3. If the initial search finds no relevant candidates or too little evidence, retry with synonyms, aliases, abbreviations, or broader topic terms. Read relevant candidate Markdown bodies before judging whether they answer the question; a filename or search snippet alone is not enough. Do not open attachments or fetch URLs found in notes.
+4. Distinguish retrieval outcomes. A successful search with insufficient evidence permits **知识库未覆盖**, phrased as “本次检索未找到足够依据”; it does not prove that the entire vault has no such knowledge. If the vault is missing, unreadable, or a tool fails, report “本次无法检索知识库” with the observed cause. Do not claim a successful search or a knowledge gap when retrieval did not run or failed.
+5. Briefly report the actual topic searched and relevant notes found (or the lack of sufficient evidence). Label note-based claims as **笔记内容**, exact quotes as **原文摘录**, and conclusions extending note evidence as **AI 推断**. If helpful, provide general model knowledge separately as **通用知识补充**, only after retrieval was attempted and its outcome was stated; never present it as vault content.
+6. Put an Obsidian wikilink beside every material vault-based claim. Prefer an existing block link, then a heading link, then the whole note: `[[Raw/领域/example#heading|label]]`.
+7. For every note-based inference, list the supporting note locations. Keep verbatim excerpts short and exact. Unsupported general knowledge belongs under **通用知识补充**, not **AI 推断** with invented note support.
+8. Do not modify notes merely to create block IDs or improve citations during a read-only request.
