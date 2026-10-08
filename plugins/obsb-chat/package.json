@@ -1,13 +1,14 @@
 {
   "name": "obsb-chat",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "private": true,
   "description": "Obsidian native chat for the OBSB OpenCode server",
   "scripts": {
     "build": "node scripts/build.mjs",
     "check": "tsc --noEmit",
     "test": "node scripts/test.mjs",
-    "smoke": "node scripts/live-smoke.mjs"
+    "smoke": "node scripts/live-smoke.mjs",
+    "smoke:features": "node scripts/live-features.mjs"
   },
   "devDependencies": {
     "esbuild": "0.28.2",

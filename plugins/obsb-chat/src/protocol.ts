@@ -1,5 +1,5 @@
 export interface Session {
-  id: string; title?: string; location?: { directory?: string }; time?: { created?: number; updated?: number };
+  id: string; parentID?: string; title?: string; location?: { directory?: string }; time?: { created?: number; updated?: number };
 }
 export interface Content {
   type: string; text?: string; name?: string; state?: { status?: string; error?: string };
@@ -9,6 +9,16 @@ export interface Message {
   time?: { created?: number; completed?: number }; error?: { message?: string }; finish?: string;
 }
 export interface Permission { id: string; action: string; resources: string[]; message?: string }
+export type FormValue = string | number | boolean | string[];
+export type FormAnswer = Record<string, FormValue>;
+export interface FormField {
+  key: string; type: string; title?: string; description?: string; required?: boolean; hidden?: boolean;
+  when?: { key: string; op: 'eq' | 'neq'; value: string | number | boolean }[];
+  default?: FormValue; options?: { value: string; label: string; description?: string }[]; custom?: boolean;
+  minItems?: number; maxItems?: number; minLength?: number; maxLength?: number; pattern?: string;
+  minimum?: number; maximum?: number; format?: string; placeholder?: string; url?: string;
+}
+export interface SessionForm { id: string; sessionID: string; title: string; fields: FormField[] }
 export interface Page<T> { data: T[]; cursor?: { next?: string | null; previous?: string | null } }
 export function unwrap<T>(value: unknown): T {
   if (value && typeof value === 'object' && 'data' in value) return (value as { data: T }).data;

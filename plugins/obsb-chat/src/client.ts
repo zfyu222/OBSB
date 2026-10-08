@@ -1,7 +1,10 @@
-import { apiRoot, basicAuth, page, SseDecoder, unwrap, type Session, type Message, type Page, type Permission } from './protocol';
+import { apiRoot, basicAuth, page, SseDecoder, unwrap, type Session, type Message, type Page, type Permission, type SessionForm, type FormAnswer } from './protocol';
 export interface Connection { serverUrl: string; username: string; password: string; directory: string }
 export interface Response { status: number; text: string }
 export type Transport = (url: string, method: string, headers: Record<string, string>, body?: string) => Promise<Response>;
+export class ApiError extends Error {
+  constructor(readonly status: number, message: string) { super(message); }
+}
 export class OpenCodeClient {
   readonly root: string;
   readonly headers: Record<string, string>;
@@ -14,7 +17,11 @@ export class OpenCodeClient {
     const headers = { ...this.headers, ...(payload === undefined ? {} : { 'Content-Type': 'application/json' }) };
     const response = await this.transport(this.url(path), method, headers, payload === undefined ? undefined : JSON.stringify(payload));
     if (response.status === 401 || response.status === 403) throw new Error('OpenCode 登录失败，请检查账号和密码');
-    if (response.status < 200 || response.status >= 300) throw new Error(`OpenCode 请求失败（HTTP ${response.status}）`);
+    if (response.status < 200 || response.status >= 300) {
+      let detail = '';
+      try { const error = JSON.parse(response.text); detail = error.message ?? error.error?.message ?? ''; } catch { /* Do not display proxy HTML. */ }
+      throw new ApiError(response.status, `OpenCode 请求失败（HTTP ${response.status}）${typeof detail === 'string' && detail ? '：' + detail : ''}`);
+    }
     if (!response.text) return undefined as T;
     try { return JSON.parse(response.text) as T; } catch { throw new Error('服务器未返回 JSON，请检查地址和反向代理'); }
   }
@@ -29,6 +36,24 @@ export class OpenCodeClient {
   async create(title?: string): Promise<Session> {
     return unwrap(await this.request('POST', '/session', { ...(title === undefined ? {} : { title }), location: { directory: this.connection.directory } }));
   }
+  async allSessions(): Promise<Session[]> {
+    const sessions = new Map<string, Session>(); const cursors = new Set<string>(); let cursor: string | undefined;
+    do {
+      const result = await this.sessions(cursor);
+      for (const session of result.data) sessions.set(session.id, session);
+      cursor = result.cursor?.next ?? undefined;
+      if (cursor && cursors.has(cursor)) throw new Error('服务器会话分页重复，请刷新后重试');
+      if (cursor) cursors.add(cursor);
+    } while (cursor);
+    return [...sessions.values()];
+  }
+  async remove(id: string): Promise<void> { await this.request('DELETE', `/session/${encodeURIComponent(id)}`); }
+  async compact(id: string): Promise<void> { await this.request('POST', `/session/${encodeURIComponent(id)}/compact`, {}); }
+  async forms(id: string): Promise<SessionForm[]> { return unwrap(await this.request('GET', `/session/${encodeURIComponent(id)}/form`)); }
+  async answerForm(id: string, form: string, answer: FormAnswer): Promise<void> {
+    await this.request('POST', `/session/${encodeURIComponent(id)}/form/${encodeURIComponent(form)}/reply`, { answer });
+  }
+  async cancelForm(id: string, form: string): Promise<void> { await this.request('DELETE', `/session/${encodeURIComponent(id)}/form/${encodeURIComponent(form)}`); }
   async session(id: string): Promise<Session> { return unwrap(await this.request('GET', `/session/${encodeURIComponent(id)}`)); }
   async messages(id: string, cursor?: string): Promise<Page<Message>> {
     const query = new URLSearchParams({ limit: '50' });

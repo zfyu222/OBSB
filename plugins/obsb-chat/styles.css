@@ -44,3 +44,16 @@ body:not(.is-mobile) .obsb-extras > summary { display: none; }
 .is-mobile .obsb-send-actions { grid-column: 2; flex-wrap: nowrap; align-self: end; }
 .is-mobile .obsb-stop:disabled { display: none; }
 .is-mobile .obsb-shortcut { display: none; }
+.obsb-forms { flex-shrink: 1; min-height: 0; max-height: 45vh; overflow-y: auto; }
+.obsb-forms:empty { display: none; }
+.obsb-form-card { border: 1px solid var(--interactive-accent); border-radius: 8px; padding: 10px; margin-bottom: 6px; }
+.obsb-form-field { display: flex; flex-direction: column; gap: 5px; margin: 10px 0; }
+.obsb-form-field[hidden] { display: none; }
+.obsb-form-field textarea, .obsb-form-field input:not([type=checkbox]):not([type=radio]), .obsb-form-field select { width: 100%; }
+.obsb-form-option, .obsb-session-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; cursor: pointer; flex-wrap: wrap; }
+.obsb-form-description { color: var(--text-muted); font-size: var(--font-ui-small); }
+.obsb-session-manager input[type=search] { width: 100%; }
+.obsb-session-list { max-height: 50vh; overflow-y: auto; margin: 10px 0; }
+.obsb-session-manager p { white-space: pre-wrap; }
+.is-mobile .obsb-forms { max-height: 45vh; }
+.is-mobile .obsb-form-field textarea { font-size: 16px; min-height: 60px; }

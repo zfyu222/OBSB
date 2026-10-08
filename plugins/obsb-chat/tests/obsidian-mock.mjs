@@ -16,6 +16,12 @@ export class ItemView extends Component {
   constructor(leaf) { super(); this.app = leaf.app; this.contentEl = document.createElement('div'); }
 }
 export class PluginSettingTab {}
+export class Modal {
+  static opened = [];
+  constructor(app) { this.app = app; this.contentEl = document.createElement('div'); }
+  open() { Modal.opened.push(this); document.body.append(this.contentEl); this.onOpen?.(); }
+  close() { Modal.opened = Modal.opened.filter(modal => modal !== this); this.onClose?.(); this.contentEl.remove(); }
+}
 export class Setting {}
 export class MarkdownView {}
 export class WorkspaceLeaf {}

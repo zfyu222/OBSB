@@ -15,6 +15,8 @@
 
 支持服务器会话、主题自动命名、增量回答、Markdown 引用跳转、选段上下文、消息复制，以及 Enter 发送 / Shift+Enter 换行。详细功能、配置和验证边界见 [插件说明](plugins/obsb-chat/README.md)。
 
+0.2.0 新增 AI 追问表单、当前项目对话批量删除/清空及 `/compact` 历史压缩；服务器命令列表继续动态读取。发布与 BRAT 可更新版本以 GitHub Release 为准。
+
 ## 框架开发与发布
 
 - 日常维护入口：[AGENTS.md](AGENTS.md)；框架开发入口：[开发文档](docs/框架开发入口.md)。

@@ -20,6 +20,170 @@ proto.createDiv = function (options) { return this.createEl('div', options); };
 proto.createSpan = function (options) { return this.createEl('span', options); };
 const { default: Plugin } = await import('../.test-build/main.mjs');
 const { Platform } = await import('../.test-build/main.mjs');
+const { Modal, FormCards } = await import('../.test-build/main.mjs');
+const tick = () => new Promise(resolve => setTimeout(resolve, 0));
+
+test('pending forms retain input through polling and submit choices, custom text, false and numbers', async () => {
+  const { view, client, sent } = await setup();
+  const form = { id: 'frm_one', sessionID: 'ses_one', title: '选择方案', fields: [
+    { key: 'single', type: 'string', required: true, options: [{ value: 'a', label: '甲' }], custom: true },
+    { key: 'many', type: 'multiselect', required: true, options: [{ value: 'a', label: '甲' }, { value: 'b', label: '乙' }], custom: true },
+    { key: 'text', type: 'string', required: true }, { key: 'flag', type: 'boolean', required: true }, { key: 'number', type: 'integer', required: true, minimum: 0 },
+  ] };
+  let forms = [form]; const replies = [];
+  client.forms = async () => forms;
+  client.answerForm = async (id, formID, answer) => { replies.push({ id, formID, answer }); forms = []; };
+  try {
+    await view.refresh();
+    assert.equal(view.contentEl.querySelector('.obsb-status').textContent, 'AI 正在等待你的回答');
+    const card = view.contentEl.querySelector('.obsb-form-card');
+    const fields = card.querySelectorAll('.obsb-form-field');
+    fields[0].querySelector('input').click(); fields[0].querySelector('textarea').value = '自定义方案';
+    fields[1].querySelectorAll('input')[1].click(); fields[1].querySelector('textarea').value = '额外选项';
+    fields[2].querySelector('textarea').value = '理由'; fields[3].querySelector('select').value = 'false'; fields[4].querySelector('input').value = '0';
+    await view.refresh(); assert.equal(view.contentEl.querySelector('.obsb-form-card'), card);
+    view.contentEl.querySelector('.obsb-composer textarea').value = '不应该发出'; await view.send(); assert.equal(sent.length, 0);
+    card.querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); await tick();
+    assert.deepEqual(replies, [{ id: 'ses_one', formID: 'frm_one', answer: { single: '自定义方案', many: ['b', '额外选项'], text: '理由', flag: false, number: 0 } }]);
+    assert.equal(view.contentEl.querySelector('.obsb-form-card'), null);
+  } finally { await view.onClose(); view.unload(); }
+});
+
+test('form validation, conditions, duplicate submission and failed replies preserve answers', async () => {
+  const parent = document.createElement('div'); const calls = []; let fail = true;
+  document.body.append(parent);
+  const cards = new FormCards(parent, async (_, answer) => { calls.push(answer); if (fail) throw new Error('offline'); });
+  const form = { id: 'frm_test', sessionID: 'ses_one', title: '问题', fields: [
+    { key: 'choice', type: 'string', required: true, options: [{ value: 'a', label: '甲' }, { value: 'b', label: '乙' }] },
+    { key: 'extra', type: 'string', required: true, when: [{ key: 'choice', op: 'eq', value: 'b' }] },
+  ] };
+  cards.update([form]); const body = parent.querySelector('form');
+  const submit = () => body.dispatchEvent(new window.Event('submit', { cancelable: true }));
+  submit(); await tick(); assert.equal(calls.length, 0); assert.match(parent.querySelector('.obsb-error').textContent, /请回答/);
+  parent.querySelector('input[value="b"]').click();
+  assert.equal(parent.querySelectorAll('.obsb-form-field')[1].hidden, false);
+  submit(); await tick(); assert.equal(calls.length, 0);
+  parent.querySelector('textarea').value = '保留我的输入';
+  submit(); submit(); await tick(); assert.equal(calls.length, 1); assert.equal(parent.querySelector('textarea').value, '保留我的输入');
+  assert.equal(parent.querySelector('.obsb-error').textContent, 'offline');
+  cards.update([form]); assert.equal(parent.querySelector('form'), body);
+  parent.querySelector('input[value="a"]').click(); fail = false; submit(); await tick();
+  assert.deepEqual(calls[1], { choice: 'a' });
+  cards.update([form]); assert.equal(parent.querySelector('form'), null, 'late stale poll must not resurrect a settled form');
+  parent.remove();
+});
+
+test('cancel form, unsupported fields and switching sessions cannot send an answer to another session', async () => {
+  const { view, client } = await setup(); let forms = [{ id: 'frm_one', sessionID: 'ses_one', title: '问题', fields: [{ key: 'text', type: 'string' }] }];
+  const cancelled = []; client.forms = async () => forms;
+  client.cancelForm = async (...args) => { cancelled.push(args); forms = []; };
+  try {
+    await view.refresh();
+    Array.from(view.contentEl.querySelectorAll('.obsb-forms button')).find(button => button.textContent === '取消提问').click(); await tick();
+    assert.deepEqual(cancelled, [['ses_one', 'frm_one']]);
+    forms = [{ id: 'frm_unknown', sessionID: 'ses_one', title: '外部字段', fields: [{ key: 'external', type: 'external' }] }]; await view.refresh();
+    assert.equal(view.contentEl.querySelector('.obsb-forms button[type=submit]').disabled, true);
+    view.contentEl.querySelector('.obsb-forms form').dispatchEvent(new window.Event('submit', { cancelable: true })); await tick();
+    assert.match(view.contentEl.querySelector('.obsb-forms .obsb-error[role=alert]').textContent, /暂不支持/);
+    await view.choose(''); assert.equal(view.contentEl.querySelector('.obsb-form-card'), null);
+  } finally { await view.onClose(); view.unload(); }
+});
+
+test('/compact and compression button call compaction API and preserve drafts on failure', async () => {
+  const { view, client, sent } = await setup(); const compacted = [];
+  client.compact = async id => { compacted.push(id); };
+  try {
+    const input = view.contentEl.querySelector('.obsb-composer textarea');
+    assert.ok(Array.from(view.contentEl.querySelector('.obsb-actions select').options).some(option => option.value === 'compact'));
+    input.value = '/compact'; await view.send(); assert.deepEqual(compacted, ['ses_one']); assert.equal(sent.length, 0); assert.equal(input.value, '');
+    await view.refresh(); client.compact = async () => { throw new Error('offline'); };
+    input.value = '/compact'; await assert.rejects(() => view.send(), /offline/); assert.equal(input.value, '/compact');
+    input.value = '/compact extra'; await assert.rejects(() => view.send(), /不接受参数/);
+    input.value = '/compact'; view.attach({ path: 'Raw/笔记.md' }); await assert.rejects(() => view.send(), /移除附加/);
+  } finally { await view.onClose(); view.unload(); }
+});
+
+test('session deletion requires confirmation; active children and other projects are protected', async () => {
+  const { view, client, sessions } = await setup(); const removed = [];
+  client.remove = async id => { removed.push(id); sessions.splice(sessions.findIndex(item => item.id === id), 1); };
+  try {
+    view.confirmClear(); assert.equal(removed.length, 0); const confirm = Modal.opened.at(-1);
+    assert.match(confirm.contentEl.textContent, /子对话/); confirm.close(); assert.equal(removed.length, 0);
+    await assert.rejects(() => view.deleteSessions([{ id: 'ses_other', location: { directory: '/other' } }]), /当前项目/);
+    sessions.push({ id: 'ses_child', parentID: 'ses_one', location: { directory: '/workspace' } });
+    client.active = async () => ({ ses_child: {} });
+    await assert.rejects(() => view.deleteSessions([sessions[0]]), /子对话正在运行/); assert.deepEqual(removed, []);
+  } finally { for (const modal of [...Modal.opened]) modal.close(); await view.onClose(); view.unload(); }
+});
+
+test('clear deletes the current session and starts an empty server session; batch failures reconcile successes', async () => {
+  const { view, client, sessions } = await setup(); const removed = [];
+  client.remove = async id => { removed.push(id); sessions.splice(sessions.findIndex(item => item.id === id), 1); };
+  client.create = async () => { const session = { id: 'ses_new', title: '新对话', location: { directory: '/workspace' } }; sessions.unshift(session); return session; };
+  try {
+    await view.deleteSessions([sessions[0]], true); assert.deepEqual(removed, ['ses_one']); assert.equal(view.session, 'ses_new');
+    sessions.push({ id: 'ses_fail', location: { directory: '/workspace' } });
+    client.remove = async id => { if (id === 'ses_fail') throw new Error('offline'); removed.push(id); sessions.splice(sessions.findIndex(item => item.id === id), 1); };
+    await assert.rejects(() => view.deleteSessions([...sessions]), /已删除 1 个对话.*offline/);
+    assert.equal(view.session, 'ses_fail'); assert.equal(view.submitting, false); assert.equal(sessions.length, 1);
+  } finally { await view.onClose(); view.unload(); }
+});
+
+test('manager loads all pages before select-all and confirms exact targets', async () => {
+  const { view, client, sessions } = await setup(); const deleted = [];
+  sessions.push({ id: 'ses_older', title: '旧对话', location: { directory: '/workspace' } });
+  view.deleteSessions = async targets => { deleted.push(targets.map(item => item.id)); };
+  try {
+    view.manageSessions(); await tick(); const manager = Modal.opened.at(-1);
+    const buttons = () => Array.from(manager.contentEl.querySelectorAll('button'));
+    buttons().find(button => button.textContent === '全选当前项目').click();
+    buttons().find(button => button.textContent.startsWith('删除选中')).click();
+    assert.equal(deleted.length, 0); const confirm = Modal.opened.at(-1);
+    assert.match(confirm.contentEl.textContent, /测试/); assert.match(confirm.contentEl.textContent, /旧对话/);
+    Array.from(confirm.contentEl.querySelectorAll('button')).find(button => button.textContent === '确认删除').click(); await tick();
+    assert.deepEqual(deleted, [['ses_one', 'ses_older']]);
+  } finally { for (const modal of [...Modal.opened]) modal.close(); await view.onClose(); view.unload(); }
+});
+
+test('manager stays usable after deletion rebuilds the client with the same connection', async () => {
+  const { view, plugin, client, sessions } = await setup(); const removed = [];
+  sessions.push({ id: 'ses_older', title: '旧对话', location: { directory: '/workspace' } });
+  client.remove = async id => { removed.push(id); sessions.splice(sessions.findIndex(item => item.id === id), 1); };
+  plugin.client = () => ({ ...client, connection: { ...client.connection } });
+  try {
+    view.manageSessions(); await tick(); const manager = Modal.opened.at(-1);
+    for (const title of ['旧对话', '测试']) {
+      Array.from(manager.contentEl.querySelectorAll('.obsb-session-row')).find(row => row.textContent === title).querySelector('input').click();
+      Array.from(manager.contentEl.querySelectorAll('button')).find(button => button.textContent.startsWith('删除选中')).click();
+      const confirm = Modal.opened.at(-1);
+      Array.from(confirm.contentEl.querySelectorAll('button')).find(button => button.textContent === '确认删除').click();
+      await tick(); await tick(); assert.equal(Modal.opened.includes(confirm), false);
+    }
+    assert.deepEqual(removed, ['ses_older', 'ses_one']); assert.equal(view.session, '');
+  } finally { for (const modal of [...Modal.opened]) modal.close(); await view.onClose(); view.unload(); }
+});
+
+test('a lost deletion response reconciles server state instead of leaving a deleted conversation selected', async () => {
+  const { view, client, sessions } = await setup();
+  client.remove = async () => { sessions.splice(0); throw new Error('response lost'); };
+  try {
+    await assert.rejects(() => view.deleteSessions([...sessions]), /response lost/);
+    assert.equal(view.session, ''); assert.equal(view.contentEl.querySelectorAll('.obsb-message').length, 0);
+    assert.equal(view.submitting, false);
+  } finally { await view.onClose(); view.unload(); }
+});
+
+test('a detached form after switching conversations cannot submit against the new selection', async () => {
+  const { view, client } = await setup(); const replies = [];
+  client.forms = async () => [{ id: 'frm_one', sessionID: 'ses_one', title: '回答', fields: [{ key: 'answer', type: 'string', required: true }] }];
+  client.answerForm = async (...args) => replies.push(args);
+  try {
+    await view.refresh(); const form = view.contentEl.querySelector('.obsb-form-card form'); form.querySelector('textarea').value = '旧答案';
+    await view.choose('');
+    form.dispatchEvent(new window.Event('submit', { cancelable: true })); await tick();
+    assert.deepEqual(replies, []); assert.match(form.querySelector('.obsb-error').textContent, /对话已切换/);
+  } finally { await view.onClose(); view.unload(); }
+});
 
 test('mobile opens a main tab and replaces a restored sidebar; desktop keeps its sidebar', async () => {
   for (const mobile of [true, false]) {
@@ -62,9 +226,11 @@ async function setup() {
   const messages = [{ id: 'msg_one', type: 'assistant', time: { created: 1, completed: 2 }, content: [{ type: 'text', text: '[[Raw/笔记#标题|引用]] `vault/Raw/笔记.md#^block` [[Raw/不存在]]' }] }];
   plugin.settings.password = 'test';
   plugin.settings.serverUrl = 'https://example.test';
-  plugin.client = () => ({ info: async () => ({ version: '2.0.7' }), sessions: async () => ({ data: [{ id: 'ses_one', title: '测试', location: { directory: '/workspace' } }] }), commands: async () => [{ name: 'run-nightly' }], messages: async () => { if (!network) throw new Error('offline'); return { data: messages }; }, active: async () => ({}), permissions: async () => [], subscribe: async () => { throw new Error('CORS'); }, prompt: async (id, text) => { sent.push({ id, text }); }, command: async (id, name, text) => { sent.push({ id, name, text }); } });
+  const sessions = [{ id: 'ses_one', title: '测试', location: { directory: '/workspace' } }];
+  const client = { connection: { directory: '/workspace' }, info: async () => ({ version: '2.0.7' }), sessions: async () => ({ data: sessions }), allSessions: async () => sessions, session: async id => sessions.find(item => item.id === id), forms: async () => [], commands: async () => [{ name: 'run-nightly' }], messages: async () => { if (!network) throw new Error('offline'); return { data: messages }; }, active: async () => ({}), permissions: async () => [], subscribe: async () => { throw new Error('CORS'); }, prompt: async (id, text) => { sent.push({ id, text }); }, command: async (id, name, text) => { sent.push({ id, name, text }); } };
+  plugin.client = () => client;
   await view.onOpen();
-  return { view, plugin, opened, sent, messages, offline: () => { network = false; }, online: () => { network = true; } };
+  return { view, plugin, opened, sent, messages, sessions, client, offline: () => { network = false; }, online: () => { network = true; } };
 }
 test('native view: wikilink heading and server-path block clicks invoke Obsidian navigation', async () => {
   const { view, opened } = await setup();

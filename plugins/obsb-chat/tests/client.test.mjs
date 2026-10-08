@@ -2,7 +2,44 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { applyTextDelta, apiRoot, basicAuth, noteTarget, SseDecoder, chronological, messageText, commandInput } from '../.test-build/protocol.mjs';
 import { OpenCodeClient } from '../.test-build/client.mjs';
+import { ApiError } from '../.test-build/client.mjs';
 const connection = { serverUrl: 'https://example.test:40087/', username: 'opencode', password: '中文口令', directory: '/workspace' };
+test('forms, cancellation, compaction and removal use the verified v2 contracts', async () => {
+  const calls = [];
+  const client = new OpenCodeClient(connection, async (url, method, headers, body) => {
+    calls.push({ path: new URL(url).pathname, method, body: body && JSON.parse(body) });
+    return { status: method === 'GET' ? 200 : 204, text: method === 'GET' ? JSON.stringify({ data: [{ id: 'frm_one', sessionID: 'ses_one', title: '选择', fields: [] }] }) : '' };
+  });
+  assert.equal((await client.forms('ses_one'))[0].id, 'frm_one');
+  await client.answerForm('ses_one', 'frm_one', { single: '自定义', multiple: ['a', 'b'], flag: false });
+  await client.cancelForm('ses_one', 'frm_one'); await client.compact('ses_one'); await client.remove('ses_one');
+  assert.deepEqual(calls, [
+    { path: '/api/session/ses_one/form', method: 'GET', body: undefined },
+    { path: '/api/session/ses_one/form/frm_one/reply', method: 'POST', body: { answer: { single: '自定义', multiple: ['a', 'b'], flag: false } } },
+    { path: '/api/session/ses_one/form/frm_one', method: 'DELETE', body: undefined },
+    { path: '/api/session/ses_one/compact', method: 'POST', body: {} },
+    { path: '/api/session/ses_one', method: 'DELETE', body: undefined },
+  ]);
+});
+test('all project sessions loads every page and excludes other directories', async () => {
+  const calls = [];
+  const client = new OpenCodeClient(connection, async url => {
+    const cursor = new URL(url).searchParams.get('cursor'); calls.push(cursor);
+    return { status: 200, text: JSON.stringify(cursor ? { data: [{ id: 'ses_old', location: { directory: '/workspace' } }] } : {
+      data: [{ id: 'ses_one', location: { directory: '/workspace' } }, { id: 'ses_other', location: { directory: '/other' } }], cursor: { next: 'page-two' },
+    }) };
+  });
+  assert.deepEqual((await client.allSessions()).map(item => item.id), ['ses_one', 'ses_old']);
+  assert.deepEqual(calls, [null, 'page-two']);
+  const repeated = new OpenCodeClient(connection, async () => ({ status: 200, text: JSON.stringify({ data: [], cursor: { next: 'same' } }) }));
+  await assert.rejects(() => repeated.allSessions(), /分页重复/);
+});
+test('structured API errors keep status for stale form reconciliation and omit proxy HTML', async () => {
+  const client = new OpenCodeClient(connection, async () => ({ status: 409, text: JSON.stringify({ message: 'Form already answered' }) }));
+  await assert.rejects(() => client.answerForm('ses_one', 'frm_one', {}), error => error instanceof ApiError && error.status === 409 && /already answered/.test(error.message));
+  const proxy = new OpenCodeClient(connection, async () => ({ status: 502, text: '<html>private proxy details</html>' }));
+  await assert.rejects(() => proxy.info(), error => !error.message.includes('private proxy'));
+});
 test('normalizes API URLs and supports Unicode credentials without leaking them into URLs', () => {
   assert.equal(apiRoot('https://example.test:40087/api/'), 'https://example.test:40087/api');
   assert.equal(Buffer.from(basicAuth('opencode', '中文口令').slice(6), 'base64').toString(), 'opencode:中文口令');

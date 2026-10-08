@@ -1,5 +1,7 @@
 import { Component, ItemView, MarkdownRenderer, Notice, Platform, Plugin, PluginSettingTab, Setting, TFile, WorkspaceLeaf, requestUrl } from 'obsidian';
-import { OpenCodeClient, type Connection } from './client';
+import { ApiError, OpenCodeClient, type Connection } from './client';
+import { FormCards } from './forms';
+import { ConfirmAction, SessionManager } from './sessions';
 import { copyMessage } from './clipboard';
 import { applyTextDelta, chronological, commandInput, messageText, noteTarget, type Message, type Permission, type Session, type StreamPreview } from './protocol';
 
@@ -70,6 +72,12 @@ class ChatView extends ItemView {
   private log!: HTMLElement;
   private status!: HTMLElement;
   private permissionsEl!: HTMLElement;
+  private formsEl!: HTMLElement;
+  private forms!: FormCards;
+  private pendingForms = 0;
+  private manageButton!: HTMLButtonElement;
+  private compactButton!: HTMLButtonElement;
+  private clearButton!: HTMLButtonElement;
   private contextEl!: HTMLElement;
   private input!: HTMLTextAreaElement;
   private sendButton!: HTMLButtonElement;
@@ -116,10 +124,26 @@ class ChatView extends ItemView {
     this.select.addEventListener('change', () => { void this.choose(this.select.value).catch(error => this.fail(error)); });
     this.sessionsMore = this.button(sessionBar, '更多会话', () => this.loadSessions(true));
     this.sessionsMore.hidden = true;
+    this.manageButton = this.button(sessionBar, '管理', () => this.manageSessions());
     this.status = root.createDiv('obsb-status');
     this.olderButton = this.button(root, '加载更早消息', () => this.loadOlder()); this.olderButton.hidden = true;
     this.log = root.createDiv('obsb-messages'); this.log.setAttribute('aria-label', '聊天记录');
     this.permissionsEl = root.createDiv('obsb-permissions');
+    this.formsEl = root.createDiv('obsb-forms');
+    this.forms = new FormCards(this.formsEl, async (form, answer) => {
+      const id = this.session; const client = this.client;
+      if (form.sessionID !== id || !this.connected) throw new Error('对话已切换或连接中断，请刷新后重试');
+      try {
+        if (answer === undefined) await client.cancelForm(id, form.id);
+        else await client.answerForm(id, form.id, answer);
+      } catch (error) {
+        // Another device may already have answered this form. Reconcile rather
+        // than keeping a stale card that can never be submitted successfully.
+        if (error instanceof ApiError && [404, 409].includes(error.status)) await this.refresh();
+        throw error;
+      }
+      await this.refresh();
+    });
     const composer = root.createDiv('obsb-composer');
     this.contextEl = composer.createDiv('obsb-context');
     const extras = composer.createEl('details', { cls: 'obsb-extras' });
@@ -140,6 +164,8 @@ class ChatView extends ItemView {
     this.commands.addEventListener('change', () => {
       if (this.commands.value) { this.input.value = '/' + this.commands.value; this.input.focus(); this.commands.value = ''; }
     });
+    this.compactButton = this.button(attachments, '压缩历史', () => this.compactSession());
+    this.clearButton = this.button(attachments, '清空当前对话', () => this.confirmClear());
     this.input = composer.createEl('textarea', { attr: { placeholder: '问笔记、修改内容，或输入 /run-nightly', 'aria-label': '发送给 AI 的消息', rows: '3' } });
     const resizeInput = () => {
       if (!Platform.isMobile) return;
@@ -164,7 +190,7 @@ class ChatView extends ItemView {
     this.registerDomEvent(window, 'online', () => { void this.connect().catch(error => this.fail(error)); });
     await this.connect();
   }
-  async onClose(): Promise<void> { this.closed = true; this.epoch++; this.stream?.abort(); window.clearTimeout(this.timer); this.clearMessages(); }
+  async onClose(): Promise<void> { this.closed = true; this.epoch++; this.stream?.abort(); window.clearTimeout(this.timer); this.forms?.clear(); this.clearMessages(); }
   private clearMessages(): void {
     for (const row of this.rendered.values()) this.removeChild(row.component);
     this.rendered.clear(); this.messages.clear(); this.previews.clear(); this.log?.empty(); this.messageCursor = undefined;
@@ -175,7 +201,12 @@ class ChatView extends ItemView {
     this.button(this.contextEl, '移除', () => { this.context = undefined; this.contextEl.empty(); });
     this.input.focus();
   }
-  private controls(): void { this.sendButton.disabled = !this.connected || this.submitting || this.active; this.stopButton.disabled = !(this.active || this.submitting); this.select.disabled = this.submitting; }
+  private controls(): void {
+    this.sendButton.disabled = !this.connected || this.submitting || this.active || this.pendingForms > 0;
+    this.stopButton.disabled = !(this.active || this.submitting); this.select.disabled = this.submitting;
+    this.manageButton.disabled = !this.connected || this.submitting;
+    this.compactButton.disabled = this.clearButton.disabled = !this.connected || !this.session || this.submitting || this.active || this.pendingForms > 0;
+  }
   private schedule(delay: number): void {
     window.clearTimeout(this.timer);
     if (!this.closed) this.timer = window.setTimeout(() => { void this.refresh(); }, delay);
@@ -192,7 +223,8 @@ class ChatView extends ItemView {
       await this.loadSessions(false);
       const commands = await this.client.commands(); if (epoch !== this.epoch || this.closed) return;
       this.commands.empty(); this.commands.createEl('option', { text: '选择命令…', value: '' });
-      for (const command of commands) this.commands.createEl('option', { text: '/' + command.name, value: command.name });
+      this.commands.createEl('option', { text: '/compact · 压缩对话历史', value: 'compact' });
+      for (const command of commands.filter(command => command.name !== 'compact')) this.commands.createEl('option', { text: '/' + command.name + (command.description ? ' · ' + command.description : ''), value: command.name });
       const wanted = this.sessions.find(item => item.id === this.plugin.settings.lastSession)?.id ?? this.sessions[0]?.id ?? '';
       this.connected = true;
       await this.choose(wanted);
@@ -226,7 +258,7 @@ class ChatView extends ItemView {
     this.select.value = this.session; this.sessionsMore.hidden = !this.sessionCursor;
   }
   private async choose(id: string): Promise<void> {
-    if (id !== this.session) { this.clearMessages(); this.context = undefined; this.contextEl.empty(); this.input.value = ''; }
+    if (id !== this.session) { this.clearMessages(); this.forms.clear(); this.pendingForms = 0; this.context = undefined; this.contextEl.empty(); this.input.value = ''; }
     this.session = id; this.select.value = id; this.plugin.settings.lastSession = id; await this.plugin.save();
     this.permissionsEl.empty(); this.active = false; this.controls();
     await this.refresh();
@@ -236,6 +268,94 @@ class ChatView extends ItemView {
     const session = await this.client.create();
     await this.loadSessions(false); await this.choose(session.id); this.input.focus();
   }
+  private manageSessions(): void {
+    if (!this.connected || this.submitting) return;
+    const client = this.client;
+    new SessionManager(this.app, client.connection.directory, () => client.allSessions(), async targets => {
+      if (!this.sameConnection(client)) throw new Error('连接设置已变化，请重新打开对话管理');
+      await this.deleteSessions(targets);
+    }).open();
+  }
+  private sameConnection(client: OpenCodeClient): boolean {
+    return (['serverUrl', 'username', 'password', 'directory'] as const).every(key => client.connection[key] === this.client.connection[key]);
+  }
+  private confirmClear(): void {
+    if (!this.connected || !this.session || this.submitting || this.active || this.pendingForms) return;
+    const client = this.client;
+    const session = this.sessions.find(item => item.id === this.session);
+    if (!session) return;
+    new ConfirmAction(this.app, '清空当前对话？',
+      `将永久删除“${session.title || '未命名对话'}”及其子对话的服务器记录，然后开始一个空白新对话。其他设备也会生效；已修改的笔记保持现状。`,
+      async () => {
+        if (!this.sameConnection(client) || session.id !== this.session) throw new Error('当前对话已变化，请重新选择清空');
+        await this.deleteSessions([session], true);
+      }).open();
+  }
+  private async deleteSessions(targets: Session[], replace = false): Promise<void> {
+    if (!this.connected || this.submitting) throw new Error('正在执行其他操作，请稍后重试');
+    const client = this.client; const removed = new Set<string>(); let failure: unknown; let mutationStarted = false;
+    this.submitting = true; this.controls();
+    try {
+      const all = await client.allSessions();
+      const selected = new Set(targets.map(target => target.id));
+      for (const target of targets) if (target.location?.directory !== client.connection.directory) throw new Error('只能删除当前项目的对话');
+      // Deleting a parent also removes descendants. Include them when checking
+      // active work and reconciling the current selection after deletion.
+      const affected = new Set(selected);
+      let expanded = true;
+      while (expanded) {
+        expanded = false;
+        for (const session of all) if (session.parentID && affected.has(session.parentID) && !affected.has(session.id)) { affected.add(session.id); expanded = true; }
+      }
+      const active = await client.active();
+      if (Object.keys(active).some(id => affected.has(id))) throw new Error('所选对话或其子对话正在运行，请先停止后再删除');
+      for (const target of targets) {
+        try {
+          const current = await client.session(target.id);
+          if (current.location?.directory !== client.connection.directory) throw new Error('对话所属项目已变化，已停止删除');
+          const running = await client.active();
+          if (Object.keys(running).some(id => affected.has(id))) throw new Error('对话开始运行，已停止删除；请先停止后重试');
+          mutationStarted = true; await client.remove(target.id);
+        } catch (error) { if (!(error instanceof ApiError && error.status === 404)) throw error; }
+        removed.add(target.id);
+        // Mark only descendants of a successfully deleted target as removed.
+        let expanded = true;
+        while (expanded) {
+          expanded = false;
+          for (const session of all) if (session.parentID && removed.has(session.parentID) && !removed.has(session.id)) { removed.add(session.id); expanded = true; }
+        }
+      }
+      if (replace) {
+        const fresh = await client.create();
+        this.plugin.settings.lastSession = fresh.id;
+      }
+    } catch (error) { failure = error; }
+    finally {
+      if (removed.has(this.session)) {
+        this.session = ''; this.clearMessages(); this.forms.clear(); this.pendingForms = 0;
+        this.context = undefined; this.contextEl.empty(); this.input.value = '';
+        if (removed.has(this.plugin.settings.lastSession)) this.plugin.settings.lastSession = '';
+      }
+      this.submitting = false;
+      if (removed.size) await this.plugin.save();
+      // A transport failure can happen after the server has accepted deletion.
+      // Refresh actual state even when no successful response was observed.
+      if ((removed.size || mutationStarted) && !this.closed) await this.connect();
+      this.controls();
+    }
+    if (failure) throw new Error(`${removed.size ? `已删除 ${removed.size} 个对话；其余操作未完成：` : ''}${failure instanceof Error ? failure.message : '删除失败'}`);
+    new Notice(replace ? '已清空当前对话并开始新对话' : `已删除 ${removed.size} 个对话（含子对话）`);
+  }
+  private async compactSession(): Promise<void> {
+    if (!this.connected || !this.session || this.submitting || this.active || this.pendingForms) return;
+    const id = this.session; const client = this.client;
+    this.submitting = true; this.controls();
+    try {
+      await client.compact(id);
+      this.active = true; this.status.setText('正在压缩对话历史…'); this.schedule(300);
+      new Notice('已请求压缩历史；聊天记录仍保留，后续上下文由服务器生成摘要');
+    } finally { this.submitting = false; this.controls(); }
+  }
   private async refresh(): Promise<void> {
     if (this.closed || !this.connected) return;
     if (this.refreshInFlight) { this.schedule(300); return; }
@@ -243,7 +363,7 @@ class ChatView extends ItemView {
     const id = this.session; const epoch = this.epoch;
     this.refreshInFlight = true; this.lastRefresh = Date.now();
     try {
-      const [result, active, permissions] = await Promise.all([this.client.messages(id), this.client.active(), this.client.permissions(id)]);
+      const [result, active, permissions, forms] = await Promise.all([this.client.messages(id), this.client.active(), this.client.permissions(id), this.client.forms(id)]);
       if (id !== this.session || epoch !== this.epoch || this.closed) return;
       this.error = ''; this.active = id in active;
       // Refresh the newest page without throwing away explicitly loaded history.
@@ -253,6 +373,8 @@ class ChatView extends ItemView {
       }
       if (this.messageCursor === undefined) this.messageCursor = result.cursor?.next ?? null;
       await this.renderMessages(); this.showPermissions(permissions, id);
+      if (id !== this.session || epoch !== this.epoch || this.closed) return;
+      this.pendingForms = forms.length; this.forms.update(forms);
       // Titles are generated asynchronously on the server. Refresh just this
       // option rather than rebuilding the dropdown and losing loaded history.
       try {
@@ -264,7 +386,7 @@ class ChatView extends ItemView {
         const title = session.title || '未命名对话';
         if (option && option.textContent !== title) option.textContent = title;
       } catch { /* Title lookup must not interrupt message delivery. */ }
-      this.status.setText(permissions.length ? '等待你处理操作请求' : this.active ? (this.streaming ? 'AI 正在回复…' : 'AI 正在回复 · 自动刷新') : '已连接');
+      this.status.setText(forms.length ? 'AI 正在等待你的回答' : permissions.length ? '等待你处理操作请求' : this.active ? (this.streaming ? 'AI 正在回复…' : 'AI 正在回复 · 自动刷新') : '已连接');
     } catch (error) { if (epoch === this.epoch && id === this.session && !this.closed) this.status.setText(error instanceof Error ? error.message : '连接中断，正在重试'); }
     finally { this.refreshInFlight = false; this.controls(); this.schedule(this.active ? 1500 : 8000); }
   }
@@ -359,13 +481,19 @@ class ChatView extends ItemView {
     }, { capture: true });
   }
   private async send(): Promise<void> {
-    const text = this.input.value.trim(); if (!text || this.submitting || this.active) return;
+    const text = this.input.value.trim(); if (!text || this.submitting || this.active || this.pendingForms) return;
     if (!this.connected || !this.plugin.settings.password) { this.plugin.openSettings(); return; }
+    const command = commandInput(text);
+    if (command?.name === 'compact') {
+      if (command.text) throw new Error('/compact 不接受参数');
+      if (this.context) throw new Error('压缩历史前请移除附加笔记或选段');
+      if (!this.session) throw new Error('请先开始一个对话，再压缩历史');
+      await this.compactSession(); this.input.value = ''; if (Platform.isMobile) this.input.style.height = '44px'; return;
+    }
     this.submitting = true; this.controls();
     try {
       if (!this.session) await this.newSessionForSend();
       const id = this.session; const context = this.context;
-      const command = commandInput(text);
       if (command) {
         if (context) throw new Error('执行命令前请移除附加笔记或选段');
         const commands = await this.client.commands();
