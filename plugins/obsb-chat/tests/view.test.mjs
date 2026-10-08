@@ -117,6 +117,32 @@ test('IME confirmation Enter never sends, including legacy mobile events', async
   } finally { await view.onClose(); view.unload(); }
 });
 
+test('refresh updates server-generated title without losing dropdown history or selection', async () => {
+  const { view } = await setup();
+  try {
+    const select = view.contentEl.querySelector('.obsb-session-bar select');
+    select.createEl('option', { text: '更早会话', value: 'ses_older' });
+    view.client.session = async () => ({ id: 'ses_one', title: '宝宝饮食记录' });
+    await view.refresh();
+    assert.equal(select.selectedOptions[0].textContent, '宝宝饮食记录');
+    assert.equal(select.value, 'ses_one');
+    assert.ok(Array.from(select.options).some(item => item.value === 'ses_older'));
+    view.client.session = async () => { throw new Error('title unavailable'); };
+    await view.refresh();
+    assert.equal(view.contentEl.querySelector('.obsb-status').textContent, '已连接');
+  } finally { await view.onClose(); view.unload(); }
+});
+
+test('new sessions never send a fixed timestamp title', async () => {
+  const { view } = await setup();
+  const calls = [];
+  view.client.create = async (...args) => { calls.push(args); return { id: 'ses_one' }; };
+  try {
+    await view.newSession(); await view.newSessionForSend();
+    assert.deepEqual(calls, [[], []]);
+  } finally { await view.onClose(); view.unload(); }
+});
+
 test('unchanged refresh preserves selected text and message nodes', async () => {
   const { view } = await setup();
   document.body.appendChild(view.contentEl);

@@ -72,6 +72,18 @@ test('location-scoped command discovery uses deepObject location syntax', async 
   });
   assert.equal((await client.commands())[0].name, 'run-nightly');
 });
+
+test('default create leaves title generation to server; session getter unwraps latest title', async () => {
+  const calls = [];
+  const client = new OpenCodeClient(connection, async (url, method, headers, body) => {
+    calls.push({ url, method, body: body && JSON.parse(body) });
+    return { status: 200, text: '{"data":{"id":"ses_new","title":"宝宝饮食记录"}}' };
+  });
+  await client.create();
+  assert.deepEqual(calls[0].body, { location: { directory: '/workspace' } });
+  assert.equal((await client.session('ses_new')).title, '宝宝饮食记录');
+  assert.equal(calls[1].url.endsWith('/session/ses_new'), true);
+});
 test('authentication and HTML reverse-proxy failures are readable', async () => {
   const unauthorized = new OpenCodeClient(connection, async () => ({ status: 401, text: 'private' }));
   await assert.rejects(() => unauthorized.info(), /登录失败/);

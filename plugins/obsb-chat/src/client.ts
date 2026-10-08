@@ -26,9 +26,10 @@ export class OpenCodeClient {
     result.data = result.data.filter(session => session.location?.directory === this.connection.directory);
     return result;
   }
-  async create(title: string): Promise<Session> {
-    return unwrap(await this.request('POST', '/session', { title, location: { directory: this.connection.directory } }));
+  async create(title?: string): Promise<Session> {
+    return unwrap(await this.request('POST', '/session', { ...(title === undefined ? {} : { title }), location: { directory: this.connection.directory } }));
   }
+  async session(id: string): Promise<Session> { return unwrap(await this.request('GET', `/session/${encodeURIComponent(id)}`)); }
   async messages(id: string, cursor?: string): Promise<Page<Message>> {
     const query = new URLSearchParams({ limit: '50' });
     if (cursor) query.set('cursor', cursor); else query.set('order', 'desc');

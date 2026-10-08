@@ -21,7 +21,7 @@ const subscription = client.subscribe(abort.signal, event => {
   if (event?.type === 'session.text.delta' && !sampleDelta) sampleDelta = event;
 }, () => console.log('SSE connected')).catch(error => { if (!abort.signal.aborted) console.log('SSE unavailable:', error.message); });
 try {
-  session = await client.create('OBSB 插件接口验收（临时）');
+  session = await client.create();
   await client.prompt(session.id, '这是聊天接口测试，不读取、不搜索、不编辑任何文件，不调用工具。请仅回答：接口测试成功 [[Raw/项目/夜间整理/夜间整理验收测试|引用测试]]');
   const deadline = Date.now() + 90000; let seen = false; let completed = false; let response;
   while (Date.now() < deadline) {
@@ -38,6 +38,17 @@ try {
     }
   }
   if (!completed) throw new Error('Prompt timed out');
+  // Same creation payload as the plugin; verify asynchronous server naming.
+  let named = false;
+  const titleDeadline = Date.now() + 30000;
+  while (Date.now() < titleDeadline) {
+    const current = await client.session(session.id);
+    if (current.title && current.title !== session.title && !/^New session\b/.test(current.title)) {
+      named = true; console.log(JSON.stringify({ automaticTitle: current.title })); break;
+    }
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+  if (!named) throw new Error('Server automatic title was not observed');
 } finally {
   abort.abort(); await subscription;
   if (session) { await client.interrupt(session.id); await client.request('DELETE', '/session/' + encodeURIComponent(session.id)); console.log('Removed temporary test session'); }

@@ -222,7 +222,7 @@ class ChatView extends ItemView {
   }
   private async newSession(): Promise<void> {
     if (!this.connected || this.submitting) return;
-    const session = await this.client.create('Obsidian 对话 ' + new Date().toLocaleString('zh-CN'));
+    const session = await this.client.create();
     await this.loadSessions(false); await this.choose(session.id); this.input.focus();
   }
   private async refresh(): Promise<void> {
@@ -242,6 +242,17 @@ class ChatView extends ItemView {
       }
       if (this.messageCursor === undefined) this.messageCursor = result.cursor?.next ?? null;
       await this.renderMessages(); this.showPermissions(permissions, id);
+      // Titles are generated asynchronously on the server. Refresh just this
+      // option rather than rebuilding the dropdown and losing loaded history.
+      try {
+        const session = await this.client.session(id);
+        if (id !== this.session || epoch !== this.epoch || this.closed) return;
+        const existing = this.sessions.find(item => item.id === id);
+        if (existing) existing.title = session.title;
+        const option = Array.from(this.select.options).find(item => item.value === id);
+        const title = session.title || '未命名对话';
+        if (option && option.textContent !== title) option.textContent = title;
+      } catch { /* Title lookup must not interrupt message delivery. */ }
       this.status.setText(permissions.length ? '等待你处理操作请求' : this.active ? (this.streaming ? 'AI 正在回复…' : 'AI 正在回复 · 自动刷新') : '已连接');
     } catch (error) { if (epoch === this.epoch && id === this.session && !this.closed) this.status.setText(error instanceof Error ? error.message : '连接中断，正在重试'); }
     finally { this.refreshInFlight = false; this.controls(); this.schedule(this.active ? 1500 : 8000); }
@@ -357,7 +368,7 @@ class ChatView extends ItemView {
     } finally { this.submitting = false; this.controls(); }
   }
   private async newSessionForSend(): Promise<void> {
-    const session = await this.client.create('Obsidian 对话 ' + new Date().toLocaleString('zh-CN'));
+    const session = await this.client.create();
     await this.loadSessions(false); this.session = session.id; this.select.value = session.id;
     this.plugin.settings.lastSession = session.id; await this.plugin.save();
   }
