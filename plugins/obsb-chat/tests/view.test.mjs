@@ -80,6 +80,43 @@ test('sidebar context uses the last Markdown editor and sends selection with vau
   } finally { await view.onClose(); view.unload(); }
 });
 
+test('Enter, Ctrl+Enter and Cmd+Enter send; Shift+Enter preserves newline', async () => {
+  const { view, sent } = await setup();
+  const input = view.contentEl.querySelector('textarea');
+  const press = options => {
+    const event = new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true, ...options });
+    input.dispatchEvent(event); return event;
+  };
+  try {
+    input.value = '要换行'; assert.equal(press({ shiftKey: true }).defaultPrevented, false);
+    assert.equal(sent.length, 0); assert.equal(input.value, '要换行');
+    for (const options of [{}, { ctrlKey: true }, { metaKey: true }]) {
+      input.value = '快捷键发送'; assert.equal(press(options).defaultPrevented, true);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      await view.refresh();
+    }
+    assert.equal(sent.length, 3); assert.equal(input.value, '');
+  } finally { await view.onClose(); view.unload(); }
+});
+
+test('IME confirmation Enter never sends, including legacy mobile events', async () => {
+  const { view, sent } = await setup();
+  const input = view.contentEl.querySelector('textarea'); input.value = '中文选词';
+  const press = options => {
+    const event = new window.KeyboardEvent('keydown', { key: 'Enter', cancelable: true, ...options });
+    input.dispatchEvent(event); assert.equal(event.defaultPrevented, false);
+  };
+  try {
+    press({ isComposing: true }); press({ keyCode: 229 });
+    input.dispatchEvent(new window.CompositionEvent('compositionstart')); press({});
+    input.dispatchEvent(new window.CompositionEvent('compositionend'));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(sent.length, 0); assert.equal(input.value, '中文选词');
+    input.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', cancelable: true }));
+    await new Promise(resolve => setTimeout(resolve, 0)); assert.equal(sent.length, 1);
+  } finally { await view.onClose(); view.unload(); }
+});
+
 test('unchanged refresh preserves selected text and message nodes', async () => {
   const { view } = await setup();
   document.body.appendChild(view.contentEl);

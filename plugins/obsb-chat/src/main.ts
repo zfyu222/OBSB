@@ -136,11 +136,19 @@ class ChatView extends ItemView {
       if (this.commands.value) { this.input.value = '/' + this.commands.value; this.input.focus(); this.commands.value = ''; }
     });
     this.input = composer.createEl('textarea', { attr: { placeholder: '问笔记、修改内容，或输入 /run-nightly', 'aria-label': '发送给 AI 的消息', rows: '3' } });
-    this.input.addEventListener('keydown', event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !event.isComposing) { event.preventDefault(); void this.send().catch(error => this.fail(error)); } });
+    let composing = false;
+    this.input.addEventListener('compositionstart', () => { composing = true; });
+    this.input.addEventListener('compositionend', () => { composing = false; });
+    this.input.addEventListener('keydown', event => {
+      // Some mobile IMEs report keyCode 229 instead of isComposing.
+      if (event.key !== 'Enter' || event.shiftKey || event.altKey || composing || event.isComposing || event.keyCode === 229) return;
+      event.preventDefault();
+      void this.send().catch(error => this.fail(error));
+    });
     const actions = composer.createDiv('obsb-actions');
     this.sendButton = this.button(actions, '发送', () => this.send()); this.sendButton.addClass('mod-cta');
     this.stopButton = this.button(actions, '停止', () => this.stop()); this.stopButton.disabled = true;
-    actions.createEl('span', { text: 'Ctrl / ⌘ + Enter', cls: 'obsb-shortcut' });
+    actions.createEl('span', { text: 'Enter 发送 · Shift+Enter 换行', cls: 'obsb-shortcut' });
     this.registerDomEvent(document, 'visibilitychange', () => { if (!document.hidden) void this.connect().catch(error => this.fail(error)); });
     this.registerDomEvent(window, 'online', () => { void this.connect().catch(error => this.fail(error)); });
     await this.connect();

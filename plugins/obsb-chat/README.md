@@ -1,4 +1,4 @@
-# OBSB AI 管家 0.1.1
+# OBSB AI 管家 0.1.2
 
 Obsidian 原生侧边栏客户端，连接已经部署的 NAS OpenCode 2.x。AI、模型密钥、Skills、笔记编辑和完整整理仍在服务器运行；本插件只发送用户输入、显示服务器会话和回答，以及打开本地 Markdown 引用。Windows 使用右侧栏，Android 使用 Obsidian 的移动端侧栏。未启动本地 Agent，也没有新增服务容器。
 
@@ -37,9 +37,11 @@ Android 解压安装包，把 `obsb-chat` 文件夹复制到手机仓库的 `.ob
 | 服务器项目目录 | `/workspace` |
 | 服务器笔记根目录 | `/workspace/vault` |
 
-密码保存在本机 `.obsidian/plugins/obsb-chat/data.json` 中，不包含在插件安装包或 Git 中。不要填写 DeepSeek API Key。修改设置后在聊天面板点击“刷新”。点击左侧聊天图标，或运行命令“OBSB AI 管家：打开 AI 管家”。发送按钮适用于手机；桌面也支持 Ctrl/⌘+Enter，普通 Enter 保留换行。
+密码保存在本机 `.obsidian/plugins/obsb-chat/data.json` 中，不包含在插件安装包或 Git 中。不要填写 DeepSeek API Key。修改设置后在聊天面板点击“刷新”。点击左侧聊天图标，或运行命令“OBSB AI 管家：打开 AI 管家”。输入框支持 Enter 发送、Shift+Enter 换行，兼容 Ctrl/⌘+Enter 发送；中文输入法组合输入及选词确认不会触发发送。手机也可使用发送按钮。
 
 ## 验证边界
+
+2026-10-08：0.1.2 增加 Enter 发送、Shift+Enter 换行，保留 Ctrl/⌘+Enter；键盘事件模拟覆盖中文输入法组合状态和移动端旧式 229 事件，实际输入法行为需客户端试用确认。
 
 2026-10-08：0.1.1 修复聊天文字选择和刷新打断选择的问题，增加逐消息复制。模拟测试覆盖选中后重复刷新、复制 Markdown、剪贴板回退及失败提示；两端系统复制菜单仍需实机确认。
 
