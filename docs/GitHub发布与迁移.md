@@ -8,7 +8,7 @@
 
 - Windows `origin` 使用 `https://github.com/zfyu222/OBSB.git`，通过本机 GitHub CLI 登录凭据推送。
 - NAS 同一 `origin` 通过 HTTPS 拉取公开仓库，通过仅此仓库可写的 SSH deploy key 推送。私钥只放在 `runtime/opencode/.ssh/`，不在公开源码或 vault 中。
-- `brain-agent` 需要 `openssh-client`；Dockerfile 已纳入依赖。当前容器也需安装该包，未来重新构建镜像后依赖仍保留。
+- `brain-agent` 需要 `openssh-client` 及 UID 1026 的用户记录（OpenSSH 不能只使用无 passwd 条目的数字 UID）；Dockerfile 已纳入，当前容器也已补齐，未来重新构建镜像后仍保留。
 - 腾讯 Git Token 不用于 GitHub，不把本机 GitHub 全账号 Token 复制到 NAS。
 
 ## 插件发布
