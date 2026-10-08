@@ -19,6 +19,7 @@ export class PluginSettingTab {}
 export class Setting {}
 export class MarkdownView {}
 export class WorkspaceLeaf {}
+export const Platform = { isMobile: false };
 export class TFile { constructor(path) { this.path = path; this.extension = 'md'; } }
 export class Notice { static messages = []; constructor(message) { Notice.messages.push(message); } }
 export const MarkdownRenderer = { async render(app, markdown, el) {

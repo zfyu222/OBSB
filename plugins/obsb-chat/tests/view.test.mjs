@@ -19,6 +19,39 @@ proto.createEl = function (tag, options = {}) {
 proto.createDiv = function (options) { return this.createEl('div', options); };
 proto.createSpan = function (options) { return this.createEl('span', options); };
 const { default: Plugin } = await import('../.test-build/main.mjs');
+const { Platform } = await import('../.test-build/main.mjs');
+
+test('mobile opens a main tab and replaces a restored sidebar; desktop keeps its sidebar', async () => {
+  for (const mobile of [true, false]) {
+    Platform.isMobile = mobile;
+    const calls = []; const root = {};
+    const existing = { getRoot: () => ({}), detach: () => calls.push('detach') };
+    const created = { setViewState: async () => calls.push('view'), view: {} };
+    const app = { workspace: { rootSplit: root, getLeavesOfType: () => [existing], getLeaf: type => { calls.push(type); return created; }, getRightLeaf: () => { calls.push('right'); return created; }, revealLeaf: async leaf => calls.push(leaf === created ? 'main' : 'existing') } };
+    try { await new Plugin(app).openChat(); assert.deepEqual(calls, mobile ? ['detach', 'tab', 'view', 'main'] : ['existing']); }
+    finally { Platform.isMobile = false; }
+  }
+});
+
+test('mobile extras start collapsed and composer grows only to 104px; desktop extras remain visible', async () => {
+  Platform.isMobile = true;
+  const { view } = await setup();
+  try {
+    const extras = view.contentEl.querySelector('details');
+    assert.equal(extras.open, false);
+    extras.open = true;
+    assert.ok(extras.querySelector('select[aria-label="OpenCode 命令"]'));
+    const input = view.contentEl.querySelector('textarea');
+    Object.defineProperty(input, 'scrollHeight', { value: 500 });
+    input.dispatchEvent(new window.Event('input'));
+    assert.equal(input.style.height, '104px');
+    input.value = '测试'; await view.send();
+    assert.equal(input.style.height, '44px');
+  } finally { await view.onClose(); view.unload(); Platform.isMobile = false; }
+  const desktop = await setup();
+  try { assert.equal(desktop.view.contentEl.querySelector('details').open, true); }
+  finally { await desktop.view.onClose(); desktop.view.unload(); }
+});
 async function setup() {
   const opened = []; const sent = []; let network = true;
   const app = { workspace: { openLinkText: async (...args) => { opened.push(args); }, getActiveFile: () => null }, metadataCache: { getFirstLinkpathDest: path => path === 'Raw/笔记' ? file : null } };

@@ -1,4 +1,4 @@
-import { Component, ItemView, MarkdownRenderer, Notice, Plugin, PluginSettingTab, Setting, TFile, WorkspaceLeaf, requestUrl } from 'obsidian';
+import { Component, ItemView, MarkdownRenderer, Notice, Platform, Plugin, PluginSettingTab, Setting, TFile, WorkspaceLeaf, requestUrl } from 'obsidian';
 import { OpenCodeClient, type Connection } from './client';
 import { copyMessage } from './clipboard';
 import { applyTextDelta, chronological, commandInput, messageText, noteTarget, type Message, type Permission, type Session, type StreamPreview } from './protocol';
@@ -42,8 +42,10 @@ export default class ObsbChatPlugin extends Plugin {
     return { file, selection: editor?.editor?.getSelection() };
   }
   async openChat(context?: Context): Promise<void> {
-    let leaf = this.app.workspace.getLeavesOfType(VIEW)[0];
-    if (!leaf) { leaf = this.app.workspace.getRightLeaf(false) ?? this.app.workspace.getLeaf(true); await leaf.setViewState({ type: VIEW, active: true }); }
+    let leaf: WorkspaceLeaf | undefined = this.app.workspace.getLeavesOfType(VIEW)[0];
+    // Upgrade previously restored mobile sidebar views to a full-width tab.
+    if (Platform.isMobile && leaf && leaf.getRoot() !== this.app.workspace.rootSplit) { leaf.detach(); leaf = undefined; }
+    if (!leaf) { leaf = Platform.isMobile ? this.app.workspace.getLeaf('tab') : this.app.workspace.getRightLeaf(false) ?? this.app.workspace.getLeaf(true); await leaf.setViewState({ type: VIEW, active: true }); }
     await this.app.workspace.revealLeaf(leaf);
     if (context && leaf.view instanceof ChatView) leaf.view.attach(context);
   }
@@ -120,7 +122,10 @@ class ChatView extends ItemView {
     this.permissionsEl = root.createDiv('obsb-permissions');
     const composer = root.createDiv('obsb-composer');
     this.contextEl = composer.createDiv('obsb-context');
-    const attachments = composer.createDiv('obsb-actions');
+    const extras = composer.createEl('details', { cls: 'obsb-extras' });
+    extras.open = !Platform.isMobile;
+    extras.createEl('summary', { text: '附加笔记 / 命令' });
+    const attachments = extras.createDiv('obsb-actions');
     this.button(attachments, '当前笔记', () => {
       const note = this.plugin.currentNote();
       if (note) this.attach({ path: note.file.path }); else new Notice('请先打开一篇笔记');
@@ -136,6 +141,12 @@ class ChatView extends ItemView {
       if (this.commands.value) { this.input.value = '/' + this.commands.value; this.input.focus(); this.commands.value = ''; }
     });
     this.input = composer.createEl('textarea', { attr: { placeholder: '问笔记、修改内容，或输入 /run-nightly', 'aria-label': '发送给 AI 的消息', rows: '3' } });
+    const resizeInput = () => {
+      if (!Platform.isMobile) return;
+      this.input.style.height = '44px';
+      this.input.style.height = Math.min(104, Math.max(44, this.input.scrollHeight)) + 'px';
+    };
+    this.input.addEventListener('input', resizeInput);
     let composing = false;
     this.input.addEventListener('compositionstart', () => { composing = true; });
     this.input.addEventListener('compositionend', () => { composing = false; });
@@ -145,9 +156,9 @@ class ChatView extends ItemView {
       event.preventDefault();
       void this.send().catch(error => this.fail(error));
     });
-    const actions = composer.createDiv('obsb-actions');
+    const actions = composer.createDiv('obsb-actions obsb-send-actions');
     this.sendButton = this.button(actions, '发送', () => this.send()); this.sendButton.addClass('mod-cta');
-    this.stopButton = this.button(actions, '停止', () => this.stop()); this.stopButton.disabled = true;
+    this.stopButton = this.button(actions, '停止', () => this.stop()); this.stopButton.addClass('obsb-stop'); this.stopButton.disabled = true;
     actions.createEl('span', { text: 'Enter 发送 · Shift+Enter 换行', cls: 'obsb-shortcut' });
     this.registerDomEvent(document, 'visibilitychange', () => { if (!document.hidden) void this.connect().catch(error => this.fail(error)); });
     this.registerDomEvent(window, 'online', () => { void this.connect().catch(error => this.fail(error)); });
@@ -364,7 +375,7 @@ class ChatView extends ItemView {
         const attached = context ? `\n\n附加上下文（用户选中的笔记材料）：\n笔记路径：vault/${context.path}\n${context.selection ? '选中文字：\n' + context.selection : '请按需要读取服务器已同步的这篇笔记。'}` : '';
         await this.client.prompt(id, text + attached);
       }
-      this.input.value = ''; this.context = undefined; this.contextEl.empty(); this.active = true; this.status.setText('已发送，AI 正在处理…'); this.schedule(300);
+      this.input.value = ''; if (Platform.isMobile) this.input.style.height = '44px'; this.context = undefined; this.contextEl.empty(); this.active = true; this.status.setText('已发送，AI 正在处理…'); this.schedule(300);
     } finally { this.submitting = false; this.controls(); }
   }
   private async newSessionForSend(): Promise<void> {
