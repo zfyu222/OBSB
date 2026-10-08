@@ -6,6 +6,6 @@ description: 在隔离工作区执行一次完整记忆整理
 
 执行结果：
 
-!`python3 tools/nightly_orchestrator.py --vault vault --worktrees /worktrees --state-dir /var/lib/brain-agent/nightly --agent-command "python3 tools/nightly_opencode_agent.py"`
+!`python3 /workspace/tools/nightly_orchestrator.py --vault /workspace/vault --worktrees /worktrees --state-dir /var/lib/brain-agent/nightly --agent-command "python3 /workspace/tools/nightly_opencode_agent.py"`
 
 仅根据上面的 JSON 用中文简洁说明状态、受影响路径、报告位置和下一步；若失败，说明错误但不要尝试绕过编排器直接修改正式 vault。

@@ -10,10 +10,32 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from nightly_orchestrator import changed_paths, execute, exclusive_lock, nightly_worktree_path, prepare_tool_bundle, raw_candidates, read_operations, snapshot_visible_state, tool_bundle_manifest, tracked_markdown_status, validate, write_report  # noqa: E402
+from nightly_orchestrator import changed_paths, execute, exclusive_lock, nightly_worktree_path, prepare_tool_bundle, raw_candidates, read_operations, run_agent, snapshot_visible_state, tool_bundle_manifest, tracked_markdown_status, validate, write_report  # noqa: E402
 
 
 class NightlyOrchestratorTests(unittest.TestCase):
+    def test_manual_command_matches_deployed_absolute_paths_and_keeps_worktree_cwd(self):
+        import shlex
+        import re
+
+        command_file = (ROOT / '.opencode/commands/run-nightly.md').read_text(encoding='utf-8')
+        command = re.search(r'!`([^`]+)`', command_file).group(1)
+        args = shlex.split(command)
+        self.assertEqual(args[:2], ['python3', '/workspace/tools/nightly_orchestrator.py'])
+        self.assertEqual(args[args.index('--vault') + 1], '/workspace/vault')
+        adapter_command = args[args.index('--agent-command') + 1]
+        self.assertEqual(adapter_command, 'python3 /workspace/tools/nightly_opencode_agent.py')
+        deployed = (ROOT / 'deploy/scripts/run-nightly.sh').read_text(encoding='utf-8')
+        self.assertIn('--agent-command "' + adapter_command + '"', deployed)
+        with tempfile.TemporaryDirectory() as temp:
+            worktree = Path(temp)
+            with patch('nightly_orchestrator.subprocess.run') as runner:
+                runner.return_value = subprocess.CompletedProcess([], 0, '', '')
+                run_agent(adapter_command, worktree, worktree / 'session.json', worktree / 'context.json')
+                self.assertEqual(runner.call_args.args[0], ['python3', '/workspace/tools/nightly_opencode_agent.py'])
+                self.assertEqual(runner.call_args.kwargs['cwd'], worktree)
+                self.assertEqual(runner.call_args.kwargs['env']['NIGHTLY_VAULT'], str(worktree))
+
     def vault(self, root: Path) -> Path:
         vault = root / "vault"
         for folder in ("InBox", "Raw/领域", "Drived/整理日志", "Assets"):
@@ -130,7 +152,8 @@ class NightlyOrchestratorTests(unittest.TestCase):
     def test_full_organization_receives_detailed_rules(self):
         with tempfile.TemporaryDirectory() as temp:
             bundle, manifest = prepare_tool_bundle(Path(temp))
-            rules = (bundle / "nightly-rules.md").read_text(encoding="utf-8")
+            # The manifest preserves bytes, including CRLF on Windows checkouts.
+            rules = (bundle / "nightly-rules.md").read_bytes().decode("utf-8")
             self.assertIn("summary_final", rules)
             self.assertIn("nightly_maintenance: skip", rules)
             self.assertEqual(manifest["nightly-rules.md"].decode("utf-8"), rules)
