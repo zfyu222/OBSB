@@ -2,7 +2,7 @@ ARG OPENCODE_IMAGE
 FROM ${OPENCODE_IMAGE}
 
 USER root
-RUN apk add --no-cache bash curl git jq py3-pip py3-yaml python3 ripgrep tzdata
+RUN apk add --no-cache bash curl git jq openssh-client py3-pip py3-yaml python3 ripgrep tzdata
 
 ENV HOME=/var/lib/brain-agent \
     XDG_CONFIG_HOME=/var/lib/brain-agent/.config \

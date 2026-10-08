@@ -114,9 +114,11 @@
 
 ## 3. 多设备要求
 
-### OBSB AI 管家插件（0.1.3 试用，待两端验收）
+### OBSB AI 管家插件（0.1.4 试用，待两端验收）
 
 按 [插件安装说明](../plugins/obsb-chat/README.md) 分别在 Windows、Android 的 `.obsidian/plugins/obsb-chat/` 安装三个程序文件，并在“设置 → 社区插件 → 已安装插件”启用“OBSB AI 管家”。不通过 LiveSync 传播插件程序和设置。
+
+推荐直接在社区安装 BRAT，在 BRAT 设置中添加 `https://github.com/zfyu222/OBSB`，选择最新版本并安装“OBSB AI 管家”。BRAT 负责下载与后续更新，无需手动解压。新安装的服务器地址为空；本项目使用下文的个人部署值，分享给其他用户时必须填写其自己的服务地址和账号。
 
 设置路径：**设置 → OBSB AI 管家**。服务器地址填写 `https://brain.hytzfy.dpdns.org:40087`，用户名 `opencode`，密码填写现有 OpenCode 登录密码；项目目录为 `/workspace`，服务器笔记根目录为 `/workspace/vault`。密码保存在设备本地插件配置，不在本文件记录。保存后打开 AI 管家面板点击“刷新”。不需要客户端 DeepSeek Key。
 

@@ -28,6 +28,7 @@ async function setup() {
   const file = createMockFile('Raw/笔记.md');
   const messages = [{ id: 'msg_one', type: 'assistant', time: { created: 1, completed: 2 }, content: [{ type: 'text', text: '[[Raw/笔记#标题|引用]] `vault/Raw/笔记.md#^block` [[Raw/不存在]]' }] }];
   plugin.settings.password = 'test';
+  plugin.settings.serverUrl = 'https://example.test';
   plugin.client = () => ({ info: async () => ({ version: '2.0.7' }), sessions: async () => ({ data: [{ id: 'ses_one', title: '测试', location: { directory: '/workspace' } }] }), commands: async () => [{ name: 'run-nightly' }], messages: async () => { if (!network) throw new Error('offline'); return { data: messages }; }, active: async () => ({}), permissions: async () => [], subscribe: async () => { throw new Error('CORS'); }, prompt: async (id, text) => { sent.push({ id, text }); }, command: async (id, name, text) => { sent.push({ id, name, text }); } });
   await view.onOpen();
   return { view, plugin, opened, sent, messages, offline: () => { network = false; }, online: () => { network = true; } };

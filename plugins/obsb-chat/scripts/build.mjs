@@ -1,5 +1,6 @@
 import { build } from 'esbuild';
 import { mkdir, copyFile } from 'node:fs/promises';
+import './check-release.mjs';
 await mkdir('dist/obsb-chat', { recursive: true });
 await build({ entryPoints: ['src/main.ts'], outfile: 'dist/obsb-chat/main.js', bundle: true,
   external: ['obsidian'], format: 'cjs', platform: 'browser', target: 'es2020', sourcemap: false });

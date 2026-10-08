@@ -1,0 +1,31 @@
+name: Publish Obsidian plugin
+on:
+  push:
+    tags: ['[0-9]*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: plugins/obsb-chat
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: plugins/obsb-chat/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - name: Create release with BRAT assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: >-
+          gh release create "$RELEASE_TAG"
+          dist/obsb-chat/main.js dist/obsb-chat/manifest.json dist/obsb-chat/styles.css
+          --verify-tag --title "$RELEASE_TAG" --generate-notes

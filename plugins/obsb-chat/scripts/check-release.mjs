@@ -1,0 +1,10 @@
+import { readFile } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const json = async path => JSON.parse(await readFile(new URL(path, import.meta.url), 'utf8'));
+const manifest = await json('../manifest.json');
+assert.deepEqual(await json('../../../manifest.json'), manifest, 'Root manifest must match plugin manifest');
+const versions = await json('../versions.json');
+assert.deepEqual(await json('../../../versions.json'), versions, 'Root versions must match plugin versions');
+assert.equal(versions[manifest.version], manifest.minAppVersion);
+assert.equal((await json('../package.json')).version, manifest.version);
+if (process.env.GITHUB_REF_TYPE === 'tag') assert.equal(process.env.GITHUB_REF_NAME, manifest.version, 'Tag must match plugin version without v prefix');

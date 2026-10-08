@@ -1,4 +1,4 @@
-# OBSB AI 管家 0.1.3
+# OBSB AI 管家 0.1.4
 
 Obsidian 原生侧边栏客户端，连接已经部署的 NAS OpenCode 2.x。AI、模型密钥、Skills、笔记编辑和完整整理仍在服务器运行；本插件只发送用户输入、显示服务器会话和回答，以及打开本地 Markdown 引用。Windows 使用右侧栏，Android 使用 Obsidian 的移动端侧栏。未启动本地 Agent，也没有新增服务容器。
 
@@ -16,6 +16,8 @@ Obsidian 原生侧边栏客户端，连接已经部署的 NAS OpenCode 2.x。AI�
 
 ## 构建与安装
 
+推荐通过 BRAT 安装：在 Obsidian 社区安装并启用 BRAT，在其设置中添加 `https://github.com/zfyu222/OBSB`，选择最新版本。安装和更新不需要解压或复制文件；详见 [工程首页](../../README.md)。当前尚未上架官方社区目录。
+
 在本目录运行 `npm ci`、`npm run check`、`npm test`、`npm run build`。构建产物为 `dist/obsb-chat/{main.js,manifest.json,styles.css}`。依赖只用于构建/测试；运行时仅依赖 Obsidian，不需要设备安装 Node.js。
 
 Windows 可从工程根目录执行：
@@ -30,9 +32,9 @@ Android 解压安装包，把 `obsb-chat` 文件夹复制到手机仓库的 `.ob
 
 ## 连接设置
 
-| 设置 | 当前部署值 |
+| 设置 | 填写方式 |
 | --- | --- |
-| 服务器地址 | `https://brain.hytzfy.dpdns.org:40087` |
+| 服务器地址 | 你自己的 OpenCode HTTPS 地址，例如 `https://opencode.example.com`；新安装默认留空 |
 | 用户名 | `opencode` |
 | 登录密码 | 现有 OpenCode 登录密码；由用户在本机填写 |
 | 服务器项目目录 | `/workspace` |

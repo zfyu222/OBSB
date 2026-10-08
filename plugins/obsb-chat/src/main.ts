@@ -5,7 +5,7 @@ import { applyTextDelta, chronological, commandInput, messageText, noteTarget, t
 
 const VIEW = 'obsb-chat';
 interface Settings extends Connection { serverVault: string; lastSession: string }
-const DEFAULTS: Settings = { serverUrl: 'https://brain.hytzfy.dpdns.org:40087', username: 'opencode', password: '', directory: '/workspace', serverVault: '/workspace/vault', lastSession: '' };
+const DEFAULTS: Settings = { serverUrl: '', username: 'opencode', password: '', directory: '/workspace', serverVault: '/workspace/vault', lastSession: '' };
 type Context = { path: string; selection?: string };
 
 export default class ObsbChatPlugin extends Plugin {
@@ -172,7 +172,7 @@ class ChatView extends ItemView {
   async connect(): Promise<void> {
     if (this.submitting) return;
     this.stream?.abort(); this.epoch++; window.clearTimeout(this.timer); this.streaming = false; this.connected = false; this.error = ''; this.controls();
-    if (!this.plugin.settings.password) { this.status.setText('在设置中填写 OpenCode 登录密码后，点击刷新'); return; }
+    if (!this.plugin.settings.serverUrl || !this.plugin.settings.password) { this.status.setText('在设置中填写 OpenCode 服务器地址和登录密码后，点击刷新'); return; }
     const epoch = this.epoch;
     this.client = this.plugin.client(); this.status.setText('正在连接…');
     try {
