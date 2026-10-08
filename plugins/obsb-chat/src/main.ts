@@ -1,5 +1,6 @@
 import { Component, ItemView, MarkdownRenderer, Notice, Plugin, PluginSettingTab, Setting, TFile, WorkspaceLeaf, requestUrl } from 'obsidian';
 import { OpenCodeClient, type Connection } from './client';
+import { copyMessage } from './clipboard';
 import { applyTextDelta, chronological, commandInput, messageText, noteTarget, type Message, type Permission, type Session, type StreamPreview } from './protocol';
 
 const VIEW = 'obsb-chat';
@@ -274,7 +275,13 @@ class ChatView extends ItemView {
       if (row) this.removeChild(row.component);
       const el = row?.el ?? this.log.createDiv('obsb-message'); el.empty();
       el.addClass(message.type === 'user' ? 'obsb-user' : 'obsb-assistant');
-      el.createDiv({ text: message.type === 'user' ? '你' : 'AI 管家', cls: 'obsb-role' });
+      const header = el.createDiv('obsb-message-header');
+      header.createDiv({ text: message.type === 'user' ? '你' : 'AI 管家', cls: 'obsb-role' });
+      const copy = this.button(header, '复制', async () => {
+        try { await copyMessage(text, el.ownerDocument); new Notice('消息已复制'); }
+        catch (error) { new Notice(error instanceof Error ? error.message : '复制失败'); }
+      });
+      copy.addClass('obsb-copy'); copy.setAttribute('aria-label', message.type === 'user' ? '复制消息' : '复制回答');
       const component = new Component(); this.addChild(component);
       row = { signature, el, component }; this.rendered.set(message.id, row);
       const body = el.createDiv('obsb-body');
@@ -288,7 +295,13 @@ class ChatView extends ItemView {
       if (message.error) el.createDiv({ text: message.error.message ?? 'AI 调用失败', cls: 'obsb-error' });
     }
     // Reorder existing rows when older pages arrive without recreating unchanged Markdown.
-    for (const message of chronological([...visible.values()])) { const row = this.rendered.get(message.id); if (row) this.log.appendChild(row.el); }
+    let index = 0;
+    for (const message of chronological([...visible.values()])) {
+      const row = this.rendered.get(message.id); if (!row) continue;
+      const current = this.log.children.item(index++);
+      // Moving even an unchanged DOM node clears the user's text selection.
+      if (current !== row.el) this.log.insertBefore(row.el, current);
+    }
     this.olderButton.hidden = !this.messageCursor;
     if (scroll && pinned) this.log.scrollTop = this.log.scrollHeight;
   }

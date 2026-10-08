@@ -79,3 +79,44 @@ test('sidebar context uses the last Markdown editor and sends selection with vau
     assert.equal(sent[0].text.includes('选中的材料'), true);
   } finally { await view.onClose(); view.unload(); }
 });
+
+test('unchanged refresh preserves selected text and message nodes', async () => {
+  const { view } = await setup();
+  document.body.appendChild(view.contentEl);
+  const body = view.contentEl.querySelector('.obsb-body');
+  const range = document.createRange(); range.selectNodeContents(body);
+  const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+  const selected = selection.toString(); assert.ok(selected);
+  try {
+    await view.refresh(); await view.refresh();
+    assert.equal(view.contentEl.querySelector('.obsb-body'), body);
+    assert.equal(selection.toString(), selected);
+  } finally { selection.removeAllRanges(); await view.onClose(); view.unload(); view.contentEl.remove(); }
+});
+
+test('copy button copies original Markdown without tool status or reasoning', async () => {
+  const { view, messages } = await setup();
+  const copied = [];
+  Object.defineProperty(window.navigator, 'clipboard', { configurable: true, value: { writeText: async text => { copied.push(text); } } });
+  try {
+    messages[0].content.push({ type: 'reasoning', text: '不复制的思考' }, { type: 'tool', name: 'read', state: { status: 'completed' } });
+    await view.refresh();
+    view.contentEl.querySelector('.obsb-copy').click();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.deepEqual(copied, [messages[0].content[0].text]);
+  } finally { delete window.navigator.clipboard; await view.onClose(); view.unload(); }
+});
+
+test('clipboard fallback reports failure and restores selection and focus', async () => {
+  const { copyMessage } = await import('../.test-build/main.mjs');
+  const input = document.createElement('input'); document.body.appendChild(input); input.focus();
+  Object.defineProperty(window.navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('denied'); } } });
+  document.execCommand = command => { assert.equal(command, 'copy'); assert.equal(document.querySelector('textarea').value, '完整回答'); return true; };
+  try {
+    await copyMessage('完整回答', document);
+    assert.equal(document.activeElement, input); assert.equal(document.querySelector('textarea'), null);
+    document.execCommand = () => false;
+    await assert.rejects(() => copyMessage('完整回答', document), /复制失败/);
+    assert.equal(document.querySelector('textarea'), null);
+  } finally { delete window.navigator.clipboard; delete document.execCommand; input.remove(); }
+});

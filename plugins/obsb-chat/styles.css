@@ -7,6 +7,10 @@
 .obsb-message { margin: 0 0 16px; padding: 12px; border-radius: 10px; background: var(--background-secondary); overflow-wrap: anywhere; }
 .obsb-user { border-left: 3px solid var(--interactive-accent); }
 .obsb-role { font-size: var(--font-ui-small); color: var(--text-muted); margin-bottom: 6px; }
+.obsb-message-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.obsb-message-header .obsb-role { margin-bottom: 0; }
+.obsb-copy { font-size: var(--font-ui-small); }
+.obsb-chat .obsb-body, .obsb-chat .obsb-body * { -webkit-user-select: text; user-select: text; }
 .obsb-body > :first-child { margin-top: 0; }
 .obsb-body > :last-child { margin-bottom: 0; }
 .obsb-body pre { overflow: auto; }
