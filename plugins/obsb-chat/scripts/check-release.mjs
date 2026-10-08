@@ -8,3 +8,4 @@ assert.deepEqual(await json('../../../versions.json'), versions, 'Root versions 
 assert.equal(versions[manifest.version], manifest.minAppVersion);
 assert.equal((await json('../package.json')).version, manifest.version);
 if (process.env.GITHUB_REF_TYPE === 'tag') assert.equal(process.env.GITHUB_REF_NAME, manifest.version, 'Tag must match plugin version without v prefix');
+if (process.env.RELEASE_TAG) assert.equal(process.env.RELEASE_TAG, manifest.version, 'Release version must match manifest');

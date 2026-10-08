@@ -1,5 +1,11 @@
 name: Publish Obsidian plugin
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing release tag (must match manifest)
+        required: true
+        type: string
   push:
     tags: ['[0-9]*']
 permissions:
@@ -7,6 +13,8 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.version || github.ref_name }}
     defaults:
       run:
         working-directory: plugins/obsb-chat
@@ -24,7 +32,6 @@ jobs:
       - name: Create release with BRAT assets
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
         run: >-
           gh release create "$RELEASE_TAG"
           dist/obsb-chat/main.js dist/obsb-chat/manifest.json dist/obsb-chat/styles.css
