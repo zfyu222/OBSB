@@ -5,6 +5,7 @@ import { ConfirmAction, SessionManager } from './sessions';
 import { copyMessage } from './clipboard';
 import { CaptureModal, captureUri, type CaptureState } from './capture';
 import { renderChanges } from './changes';
+import { avoidMobileOverlays } from './mobile-layout';
 import { applyTextDelta, chatUri, chronological, commandInput, messageText, noteTarget, type Message, type Permission, type Session, type StreamPreview } from './protocol';
 
 const VIEW = 'obsb-chat';
@@ -152,6 +153,7 @@ class ChatView extends ItemView {
   private lastRefresh = 0;
   private renderQueued = false;
   private error = '';
+  private mobileLayoutCleanup?: () => void;
   constructor(leaf: WorkspaceLeaf, private plugin: ObsbChatPlugin) { super(leaf); }
   getViewType(): string { return VIEW; }
   getDisplayText(): string { return 'AI 管家'; }
@@ -241,11 +243,13 @@ class ChatView extends ItemView {
     this.sendButton = this.button(actions, '发送', () => this.send()); this.sendButton.addClass('mod-cta');
     this.stopButton = this.button(actions, '停止', () => this.stop()); this.stopButton.addClass('obsb-stop'); this.stopButton.disabled = true;
     actions.createEl('span', { text: 'Enter 发送 · Shift+Enter 换行', cls: 'obsb-shortcut' });
+    this.mobileLayoutCleanup?.();
+    if (Platform.isMobile) this.mobileLayoutCleanup = avoidMobileOverlays(root);
     this.registerDomEvent(document, 'visibilitychange', () => { if (!document.hidden) void this.connect().catch(error => this.fail(error)); });
     this.registerDomEvent(window, 'online', () => { void this.connect().catch(error => this.fail(error)); });
     await this.connect();
   }
-  async onClose(): Promise<void> { this.closed = true; this.epoch++; this.stream?.abort(); window.clearTimeout(this.timer); this.forms?.clear(); this.clearMessages(); }
+  async onClose(): Promise<void> { this.mobileLayoutCleanup?.(); this.mobileLayoutCleanup = undefined; this.closed = true; this.epoch++; this.stream?.abort(); window.clearTimeout(this.timer); this.forms?.clear(); this.clearMessages(); }
   private clearMessages(): void {
     for (const row of this.rendered.values()) this.removeChild(row.component);
     this.rendered.clear(); this.messages.clear(); this.previews.clear(); this.log?.empty(); this.messageCursor = undefined;

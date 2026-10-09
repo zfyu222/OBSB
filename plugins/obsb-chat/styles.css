@@ -42,7 +42,9 @@
 .obsb-extras > summary { cursor: pointer; color: var(--text-muted); font-size: var(--font-ui-small); }
 body:not(.is-mobile) .obsb-extras > summary { display: none; }
 .obsb-context:empty, .obsb-permissions:empty { display: none; }
-.is-mobile .obsb-chat { gap: 6px; padding: 8px !important; }
+.is-mobile .obsb-chat { gap: 6px; padding: 8px !important; padding-bottom: calc(8px + max(env(safe-area-inset-bottom, 0px), var(--obsb-bottom-obstruction, 0px))) !important; }
+/* Hide Obsidian navigation only while the active leaf is this chat. */
+body.is-mobile:has(.workspace-leaf.mod-active .workspace-leaf-content[data-type="obsb-chat"]) .mobile-navbar { display: none !important; }
 .is-mobile .obsb-chat button, .is-mobile .obsb-chat select { min-height: 32px; height: 32px; padding: 4px 9px; font-size: 13px; border-radius: 8px; width: auto; margin: 0; }
 .is-mobile .obsb-toolbar, .is-mobile .obsb-session-bar { flex-wrap: nowrap; flex-shrink: 0; gap: 5px; }
 .is-mobile .obsb-toolbar strong { font-size: 14px; white-space: nowrap; }

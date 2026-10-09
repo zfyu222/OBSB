@@ -6,6 +6,7 @@ export { Modal } from 'obsidian';
 export { FormCards } from '../src/forms.ts';
 export { captureUri, saveCapture } from '../src/capture.ts';
 export { chatUri } from '../src/protocol.ts';
+export { avoidMobileOverlays } from '../src/mobile-layout.ts';
 export { TFile, TFolder } from 'obsidian';
 import { TFile } from 'obsidian';
 export const createMockFile = path => new TFile(path);

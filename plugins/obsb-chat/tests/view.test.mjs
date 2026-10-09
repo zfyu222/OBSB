@@ -1,6 +1,7 @@
 import { JSDOM } from 'jsdom';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 const dom = new JSDOM('<!doctype html><body></body>', { url: 'https://localhost' });
 globalThis.window = dom.window; globalThis.document = dom.window.document;
 const proto = dom.window.HTMLElement.prototype;
@@ -564,6 +565,61 @@ test('long patches are folded and bounded; streaming text retains tool change re
     assert.equal(card.querySelectorAll('.obsb-diff-line').length, 500);
     assert.match(card.textContent, /仅显示前 500 行/);
   } finally { await view.onClose(); view.unload(); }
+});
+
+test('mobile composer clears floating navbar and keyboard without double-counting existing space', async () => {
+  const { avoidMobileOverlays } = await import('../.test-build/main.mjs');
+  const root = document.createElement('div'); document.body.append(root);
+  const nav = document.createElement('div'); nav.className = 'mobile-navbar'; nav.style.opacity = '1'; document.body.append(nav);
+  const originalRaf = window.requestAnimationFrame; const originalCancel = window.cancelAnimationFrame;
+  const originalViewport = Object.getOwnPropertyDescriptor(window, 'visualViewport');
+  const callbacks = new Map(); let serial = 0;
+  window.requestAnimationFrame = callback => { callbacks.set(++serial, callback); return serial; };
+  window.cancelAnimationFrame = id => callbacks.delete(id);
+  const viewport = new window.EventTarget(); viewport.height = 800; viewport.offsetTop = 0;
+  Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport });
+  let viewBottom = 800; let navTop = 720;
+  root.getBoundingClientRect = () => ({ top: 100, bottom: viewBottom, left: 0, right: 400, width: 400, height: viewBottom - 100 });
+  nav.getBoundingClientRect = () => ({ top: navTop, bottom: navTop + 60, left: 30, right: 370, width: 340, height: 60 });
+  const flush = async () => { await tick(); for (const [id, callback] of [...callbacks]) { callbacks.delete(id); callback(); } };
+  const space = () => root.style.getPropertyValue('--obsb-bottom-obstruction');
+  const dispose = avoidMobileOverlays(root);
+  try {
+    assert.equal(space(), '80px');
+    nav.style.display = 'none'; await flush(); assert.equal(space(), '0px');
+    nav.style.display = ''; await flush(); assert.equal(space(), '80px');
+    viewBottom = 700; window.dispatchEvent(new window.Event('resize')); await flush(); assert.equal(space(), '0px');
+    viewBottom = 800; viewport.height = 480; viewport.dispatchEvent(new window.Event('resize')); await flush(); assert.equal(space(), '320px');
+    // Navbar repositions above the keyboard; reserve the larger combined overlap.
+    navTop = 410; window.dispatchEvent(new window.Event('resize')); await flush(); assert.equal(space(), '390px');
+    viewBottom = 480; window.dispatchEvent(new window.Event('resize')); await flush(); assert.equal(space(), '70px');
+    nav.style.visibility = 'hidden'; await flush(); assert.equal(space(), '0px');
+    viewport.height = 800; viewBottom = 800; nav.style.visibility = ''; navTop = 720; await flush(); assert.equal(space(), '80px');
+    window.dispatchEvent(new window.Event('resize')); dispose(); await flush(); assert.equal(space(), '');
+    nav.style.display = 'none'; window.dispatchEvent(new window.Event('resize')); viewport.dispatchEvent(new window.Event('scroll')); await flush();
+    assert.equal(space(), ''); assert.equal(callbacks.size, 0);
+  } finally {
+    dispose(); root.remove(); nav.remove(); window.requestAnimationFrame = originalRaf; window.cancelAnimationFrame = originalCancel;
+    if (originalViewport) Object.defineProperty(window, 'visualViewport', originalViewport); else delete window.visualViewport;
+  }
+});
+
+test('mobile navbar hide rule applies only to the active chat leaf and restores on switching views', async () => {
+  const css = await readFile(new URL('../styles.css', import.meta.url), 'utf8');
+  const rule = css.match(/(body\.is-mobile:has\([^\n]+\) \.mobile-navbar)\s*\{([^}]+)\}/);
+  assert.ok(rule); assert.match(rule[2], /display:\s*none\s*!important/);
+  const fixture = document.createElement('div');
+  fixture.innerHTML = '<div class="workspace-leaf mod-active"><div class="workspace-leaf-content" data-type="obsb-chat"></div></div><div class="mobile-navbar"></div>';
+  document.body.append(fixture);
+  const leaf = fixture.querySelector('.workspace-leaf'); const content = fixture.querySelector('.workspace-leaf-content');
+  const matches = () => [...document.querySelectorAll(rule[1])].includes(fixture.querySelector('.mobile-navbar'));
+  try {
+    document.body.classList.add('is-mobile'); assert.equal(matches(), true);
+    content.dataset.type = 'markdown'; assert.equal(matches(), false);
+    content.dataset.type = 'obsb-chat'; leaf.classList.remove('mod-active'); assert.equal(matches(), false);
+    leaf.classList.add('mod-active'); assert.equal(matches(), true);
+    document.body.classList.remove('is-mobile'); assert.equal(matches(), false);
+  } finally { fixture.remove(); document.body.classList.remove('is-mobile'); }
 });
 
 test('clipboard fallback reports failure and restores selection and focus', async () => {
