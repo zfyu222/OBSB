@@ -16,6 +16,21 @@
 .obsb-body pre { overflow: auto; }
 .obsb-body a { cursor: pointer; }
 .obsb-tool { font-size: var(--font-ui-small); color: var(--text-muted); margin-top: 6px; }
+.obsb-changes { margin-top: 8px; min-width: 0; }
+.obsb-change-heading, .obsb-change-note { font-size: var(--font-ui-small); color: var(--text-muted); padding: 6px 0; }
+.obsb-change { border: 1px solid var(--background-modifier-border); border-radius: 6px; margin-top: 6px; overflow: hidden; }
+.obsb-change > summary { cursor: pointer; padding: 8px; font-size: var(--font-ui-small); overflow-wrap: anywhere; }
+.obsb-change-counts { display: inline-flex; gap: 8px; margin-left: 8px; white-space: nowrap; }
+.obsb-add-count { color: var(--text-success); }
+.obsb-delete-count { color: var(--text-error); }
+.obsb-chat .obsb-diff { margin: 0; padding: 6px 0; overflow-x: auto; max-height: 360px; font-size: 12px; line-height: 1.6; border-radius: 0; -webkit-user-select: text; user-select: text; }
+.obsb-diff-line { display: flex; min-width: max-content; }
+.obsb-diff-number { width: 4em; flex-shrink: 0; text-align: right; padding-right: 8px; color: var(--text-muted); user-select: none; }
+.obsb-diff-text { white-space: pre; padding-right: 8px; }
+.obsb-diff-add { background: var(--background-modifier-success); }
+.obsb-diff-delete { background: var(--background-modifier-error); }
+.obsb-diff-meta { color: var(--text-muted); }
+.obsb-change-note { padding: 8px; }
 .obsb-error { color: var(--text-error); }
 .obsb-composer { flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; }
 .obsb-composer textarea { width: 100%; resize: vertical; min-height: 80px; max-height: 35vh; }

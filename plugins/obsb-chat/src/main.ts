@@ -4,6 +4,7 @@ import { FormCards } from './forms';
 import { ConfirmAction, SessionManager } from './sessions';
 import { copyMessage } from './clipboard';
 import { CaptureModal, captureUri, type CaptureState } from './capture';
+import { renderChanges } from './changes';
 import { applyTextDelta, chatUri, chronological, commandInput, messageText, noteTarget, type Message, type Permission, type Session, type StreamPreview } from './protocol';
 
 const VIEW = 'obsb-chat';
@@ -470,7 +471,7 @@ class ChatView extends ItemView {
     const visible = new Map(this.messages);
     for (const preview of this.previews.values()) {
       const snapshot = visible.get(preview.id);
-      if (!snapshot || messageText(snapshot).length < preview.text.length) visible.set(preview.id, { ...snapshot, id: preview.id, type: 'assistant', time: snapshot?.time ?? { created: preview.created }, content: [{ type: 'text', text: preview.text }] });
+      if (!snapshot || messageText(snapshot).length < preview.text.length) visible.set(preview.id, { ...snapshot, id: preview.id, type: 'assistant', time: snapshot?.time ?? { created: preview.created }, content: [...(snapshot?.content ?? []).filter(part => part.type !== 'text'), { type: 'text', text: preview.text }] });
     }
     for (const message of chronological([...visible.values()])) {
       if (!['user', 'assistant'].includes(message.type)) continue;
@@ -497,6 +498,7 @@ class ChatView extends ItemView {
       this.wireLinks(body, source, component);
       for (const tool of message.content?.filter(part => part.type === 'tool') ?? []) {
         el.createDiv({ text: `${tool.name ?? '操作'} · ${tool.state?.status === 'completed' ? '完成' : tool.state?.status === 'error' ? '失败' : '执行中'}`, cls: 'obsb-tool' });
+        renderChanges(el, tool);
       }
       if (message.error) el.createDiv({ text: message.error.message ?? 'AI 调用失败', cls: 'obsb-error' });
     }

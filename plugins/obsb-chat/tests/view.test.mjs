@@ -513,6 +513,59 @@ test('copy button copies original Markdown without tool status or reasoning', as
   } finally { delete window.navigator.clipboard; await view.onClose(); view.unload(); }
 });
 
+test('file changes render server patches literally with counts, line numbers and stable folding', async () => {
+  const { view, messages } = await setup();
+  messages[0].content.push({ type: 'tool', name: 'edit', state: { status: 'completed', metadata: { files: [
+    { file: 'vault/Raw/笔记.md', additions: 1, deletions: 1, patch: 'Index: vault/Raw/笔记.md\n--- old\n+++ new\n@@ -28,2 +28,2 @@\n 保留\n-原文\n+<img src=x onerror=alert(1)>' },
+  ] } } });
+  try {
+    await view.refresh();
+    const card = view.contentEl.querySelector('.obsb-change');
+    assert.equal(card.open, true);
+    assert.match(card.querySelector('summary').textContent, /vault\/Raw\/笔记.md\+1−1/);
+    assert.equal(card.querySelector('img'), null);
+    assert.equal(card.querySelector('.obsb-diff-add .obsb-diff-text').textContent, '+<img src=x onerror=alert(1)>');
+    assert.deepEqual([...card.querySelector('.obsb-diff-delete').querySelectorAll('.obsb-diff-number')].map(el => el.textContent), ['29', '']);
+    assert.deepEqual([...card.querySelector('.obsb-diff-add').querySelectorAll('.obsb-diff-number')].map(el => el.textContent), ['', '29']);
+    card.open = false; await view.refresh();
+    assert.equal(view.contentEl.querySelector('.obsb-change'), card); assert.equal(card.open, false);
+  } finally { await view.onClose(); view.unload(); }
+});
+
+test('file records handle multiple files, absent patches, errors and server truncation', async () => {
+  const { view, messages } = await setup();
+  messages[0].content.push(
+    { type: 'tool', name: 'apply_patch', state: { status: 'completed', metadata: { truncated: true, files: [
+      { file: 'vault/Raw/新增.md', patch: '@@ -0,0 +1 @@\n+新增', additions: 1, deletions: 0 },
+      { file: 'vault/Raw/删除.md', status: 'deleted', additions: 0, deletions: 2 },
+    ] } } },
+    { type: 'tool', name: 'edit', state: { status: 'error', metadata: { files: [{ file: '失败.md', patch: '+失败' }] } } },
+    { type: 'tool', name: 'read', state: { status: 'completed' } },
+  );
+  try {
+    await view.refresh();
+    assert.equal(view.contentEl.querySelectorAll('.obsb-change').length, 2);
+    assert.match(view.contentEl.textContent, /服务器未提供逐行差异/);
+    assert.match(view.contentEl.textContent, /服务器返回的修改记录已截断/);
+    assert.equal(view.contentEl.querySelector('.obsb-diff-add .obsb-diff-number:nth-child(2)').textContent, '1');
+  } finally { await view.onClose(); view.unload(); }
+});
+
+test('long patches are folded and bounded; streaming text retains tool change records', async () => {
+  const { view, messages } = await setup();
+  messages[0].content.push({ type: 'tool', name: 'write', state: { status: 'completed', metadata: { files: [
+    { file: 'vault/Raw/长文.md', patch: '@@ -0,0 +1,600 @@\n' + Array.from({ length: 600 }, (_, i) => '+' + i).join('\n'), additions: 600, deletions: 0 },
+  ] } } });
+  view.previews.set('msg_one', { id: 'msg_one', text: '更长的流式回答'.repeat(30), ordinal: 0, created: 1 });
+  try {
+    await view.renderMessages();
+    const card = view.contentEl.querySelector('.obsb-change');
+    assert.ok(card); assert.equal(card.open, false);
+    assert.equal(card.querySelectorAll('.obsb-diff-line').length, 500);
+    assert.match(card.textContent, /仅显示前 500 行/);
+  } finally { await view.onClose(); view.unload(); }
+});
+
 test('clipboard fallback reports failure and restores selection and focus', async () => {
   const { copyMessage } = await import('../.test-build/main.mjs');
   const input = document.createElement('input'); document.body.appendChild(input); input.focus();

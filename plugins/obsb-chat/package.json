@@ -1,6 +1,6 @@
 {
   "name": "obsb-chat",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "description": "Obsidian native chat for the OBSB OpenCode server",
   "scripts": {

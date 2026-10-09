@@ -4,8 +4,9 @@ export interface Session {
   id: string; parentID?: string; title?: string; location?: { directory?: string }; time?: { created?: number; updated?: number };
 }
 export interface Content {
-  type: string; text?: string; name?: string; state?: { status?: string; error?: string };
+  type: string; text?: string; name?: string; state?: { status?: string; error?: string; metadata?: { files?: FileChange[]; truncated?: boolean } };
 }
+export interface FileChange { file: string; patch?: string; status?: string; additions?: number; deletions?: number }
 export interface Message {
   id: string; type: string; text?: string; content?: Content[];
   time?: { created?: number; completed?: number }; error?: { message?: string }; finish?: string;
