@@ -622,6 +622,20 @@ test('mobile navbar hide rule applies only to the active chat leaf and restores 
   } finally { fixture.remove(); document.body.classList.remove('is-mobile'); }
 });
 
+test('closing the chat detaches its own leaf and clears local polling without deleting or stopping the server session', async () => {
+  const { view, client, sessions } = await setup(); let detached = 0; let closing;
+  client.remove = async () => { throw new Error('Closing must not delete history'); };
+  client.interrupt = async () => { throw new Error('Closing must not interrupt the agent'); };
+  view.leaf.detach = () => { detached++; closing = view.onClose(); };
+  const close = view.contentEl.querySelector('button[aria-label="关闭 AI 管家"]');
+  try {
+    assert.ok(close); close.click(); await tick(); await closing;
+    assert.equal(detached, 1); assert.equal(close.disabled, true);
+    assert.equal(view.closed, true); assert.equal(view.stream?.signal.aborted, true);
+    assert.equal(sessions.length, 1);
+  } finally { await view.onClose(); view.unload(); }
+});
+
 test('clipboard fallback reports failure and restores selection and focus', async () => {
   const { copyMessage } = await import('../.test-build/main.mjs');
   const input = document.createElement('input'); document.body.appendChild(input); input.focus();

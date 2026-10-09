@@ -176,6 +176,10 @@ class ChatView extends ItemView {
     this.button(toolbar, '新对话', () => this.newSession());
     this.button(toolbar, '刷新', () => this.connect());
     this.button(toolbar, '设置', () => this.plugin.openSettings());
+    const close = this.button(toolbar, '×', () => { close.disabled = true; this.leaf.detach(); });
+    close.addClass('obsb-close');
+    close.setAttribute('aria-label', '关闭 AI 管家');
+    close.setAttribute('title', '关闭 AI 管家');
     const sessionBar = root.createDiv('obsb-session-bar');
     this.select = sessionBar.createEl('select', { attr: { 'aria-label': '服务器会话' } });
     this.select.addEventListener('change', () => { void this.choose(this.select.value).catch(error => this.fail(error)); });

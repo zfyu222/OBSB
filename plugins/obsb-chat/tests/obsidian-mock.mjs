@@ -14,7 +14,7 @@ export class Plugin extends Component {
   registerObsidianProtocolHandler(action, callback) { this.protocols.set(action, callback); }
 }
 export class ItemView extends Component {
-  constructor(leaf) { super(); this.app = leaf.app; this.contentEl = document.createElement('div'); }
+  constructor(leaf) { super(); this.leaf = leaf; this.app = leaf.app; this.contentEl = document.createElement('div'); }
 }
 export class PluginSettingTab {}
 export class Modal {

@@ -1,6 +1,8 @@
 .obsb-chat { display: flex; flex-direction: column; gap: 10px; height: 100%; padding: 12px !important; min-width: 0; min-height: 0; box-sizing: border-box; overflow: hidden; }
 .obsb-toolbar, .obsb-session-bar, .obsb-actions, .obsb-context { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 .obsb-toolbar strong { margin-right: auto; }
+.obsb-close { flex-shrink: 0; }
+.is-mobile .obsb-chat .obsb-close { min-width: 32px; font-size: 22px; padding: 0 6px; }
 .obsb-session-bar select { flex: 1; min-width: 80px; max-width: 100%; }
 .obsb-status, .obsb-shortcut { font-size: var(--font-ui-small); color: var(--text-muted); }
 .obsb-messages { flex: 1; overflow-y: auto; min-height: 80px; overscroll-behavior: contain; }
