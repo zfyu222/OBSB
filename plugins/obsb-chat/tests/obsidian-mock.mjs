@@ -7,10 +7,11 @@ export class Component {
   unload() { for (const child of this.children) child.unload(); for (const cleanup of this.cleanups) cleanup(); }
 }
 export class Plugin extends Component {
-  constructor(app) { super(); this.app = app; this.manifest = { id: 'obsb-chat' }; }
+  constructor(app) { super(); this.app = app; this.manifest = { id: 'obsb-chat' }; this.protocols = new Map(); this.commands = new Map(); }
   async loadData() { return {}; } async saveData() {}
   registerView(type, factory) { this.factory = factory; }
-  addSettingTab() {} addRibbonIcon() {} addCommand() {}
+  addSettingTab() {} addRibbonIcon() {} addCommand(command) { this.commands.set(command.id, command); }
+  registerObsidianProtocolHandler(action, callback) { this.protocols.set(action, callback); }
 }
 export class ItemView extends Component {
   constructor(leaf) { super(); this.app = leaf.app; this.contentEl = document.createElement('div'); }
@@ -27,6 +28,7 @@ export class MarkdownView {}
 export class WorkspaceLeaf {}
 export const Platform = { isMobile: false };
 export class TFile { constructor(path) { this.path = path; this.extension = 'md'; } }
+export class TFolder { constructor(path) { this.path = path; } }
 export class Notice { static messages = []; constructor(message) { Notice.messages.push(message); } }
 export const MarkdownRenderer = { async render(app, markdown, el) {
   // Native renderer is supplied by Obsidian in production. The test deliberately

@@ -17,6 +17,8 @@
 
 0.2.0 新增 AI 追问表单、当前项目对话批量删除/清空及 `/compact` 历史压缩；服务器命令列表继续动态读取。发布与 BRAT 可更新版本以 GitHub Release 为准。
 
+0.2.1 新增“一键记录”：Android 桌面快捷链接唤起 Obsidian 记录框，自动命名并离线保存到本机 Inbox，保留未保存草稿；不需要连接 AI。桌面链接从插件设置复制，配置方法见[插件说明](plugins/obsb-chat/README.md#android-桌面一键记录)。
+
 ## 框架开发与发布
 
 - 日常维护入口：[AGENTS.md](AGENTS.md)；框架开发入口：[开发文档](docs/框架开发入口.md)。

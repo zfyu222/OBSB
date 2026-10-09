@@ -57,3 +57,6 @@ body:not(.is-mobile) .obsb-extras > summary { display: none; }
 .obsb-session-manager p { white-space: pre-wrap; }
 .is-mobile .obsb-forms { max-height: 45vh; }
 .is-mobile .obsb-form-field textarea { font-size: 16px; min-height: 60px; }
+.obsb-capture textarea { width: 100%; min-height: 180px; max-height: 50vh; resize: vertical; margin-bottom: 12px; }
+.obsb-capture .obsb-actions { justify-content: flex-end; margin-top: 10px; }
+.is-mobile .obsb-capture textarea { font-size: 16px; min-height: 140px; resize: none; }

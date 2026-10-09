@@ -3,17 +3,31 @@ import { ApiError, OpenCodeClient, type Connection } from './client';
 import { FormCards } from './forms';
 import { ConfirmAction, SessionManager } from './sessions';
 import { copyMessage } from './clipboard';
+import { CaptureModal, captureUri, type CaptureState } from './capture';
 import { applyTextDelta, chronological, commandInput, messageText, noteTarget, type Message, type Permission, type Session, type StreamPreview } from './protocol';
 
 const VIEW = 'obsb-chat';
-interface Settings extends Connection { serverVault: string; lastSession: string }
+interface Settings extends Connection { serverVault: string; lastSession: string; capture?: CaptureState }
 const DEFAULTS: Settings = { serverUrl: '', username: 'opencode', password: '', directory: '/workspace', serverVault: '/workspace/vault', lastSession: '' };
 type Context = { path: string; selection?: string };
 
 export default class ObsbChatPlugin extends Plugin {
   settings: Settings = { ...DEFAULTS };
+  private captureModal?: CaptureModal;
+  private captureQueued = false;
+  private unloaded = false;
+  private saveQueue: Promise<void> = Promise.resolve();
   async onload(): Promise<void> {
     this.settings = { ...DEFAULTS, ...await this.loadData() };
+    this.unloaded = false;
+    this.settings.capture = { draft: '', ...this.settings.capture };
+    this.registerObsidianProtocolHandler('obsb-capture', params => {
+      if (params.vault && params.vault !== this.app.vault.getName()) { new Notice('请先打开桌面链接指定的仓库，再点击一键记录'); return; }
+      this.openCapture();
+    });
+    this.addCommand({ id: 'quick-capture', name: '一键记录到 Inbox', callback: () => this.openCapture() });
+    this.addCommand({ id: 'copy-capture-link', name: '复制一键记录桌面链接', callback: () => { void this.copyCaptureLink(); } });
+    this.addRibbonIcon('pencil', '一键记录', () => this.openCapture());
     this.registerView(VIEW, leaf => new ChatView(leaf, this));
     this.addSettingTab(new ChatSettings(this));
     this.addRibbonIcon('messages-square', '打开 AI 管家', () => { void this.openChat(); });
@@ -35,7 +49,27 @@ export default class ObsbChatPlugin extends Plugin {
       return { status: response.status, text: response.text };
     });
   }
-  async save(): Promise<void> { await this.saveData(this.settings); }
+  save(): Promise<void> {
+    this.saveQueue = this.saveQueue.catch(() => {}).then(() => this.saveData({ ...this.settings, capture: this.settings.capture ? { ...this.settings.capture, pending: this.settings.capture.pending ? { ...this.settings.capture.pending } : undefined } : undefined }));
+    return this.saveQueue;
+  }
+  openCapture(): void {
+    if (this.unloaded) return;
+    if (this.captureModal) { if (this.captureModal.saving) new Notice('正在保存上一条记录，请稍候'); else this.captureModal.focus(); return; }
+    if (this.captureQueued) return;
+    this.captureQueued = true;
+    this.app.workspace.onLayoutReady(() => {
+      this.captureQueued = false; if (this.unloaded || this.captureModal) return;
+      const state = this.settings.capture ?? (this.settings.capture = { draft: '' });
+      this.captureModal = new CaptureModal(this.app, state, () => this.save(), () => { this.captureModal = undefined; });
+      this.captureModal.open();
+    });
+  }
+  async copyCaptureLink(): Promise<void> {
+    try { await copyMessage(captureUri(this.app.vault.getName()), document); new Notice('已复制桌面链接；快捷方式名称设为“一键记录”'); }
+    catch (error) { new Notice(error instanceof Error ? error.message : '复制失败'); }
+  }
+  onunload(): void { this.unloaded = true; this.captureModal?.close(); }
   currentNote(): { file: TFile; selection?: string } | null {
     // A sidebar may become the active leaf; activeEditor retains the last note.
     const editor = this.app.workspace.activeEditor;
@@ -519,7 +553,7 @@ class ChatSettings extends PluginSettingTab {
   display(): void {
     this.containerEl.empty(); this.containerEl.createEl('h2', { text: 'AI 管家连接' });
     this.containerEl.createEl('p', { text: '连接现有 NAS OpenCode。保存后在聊天面板点击“刷新”。' });
-    const field = (name: string, key: keyof Settings, description: string, secret = false) => {
+    const field = (name: string, key: keyof Connection | 'serverVault', description: string, secret = false) => {
       new Setting(this.containerEl).setName(name).setDesc(description).addText(text => {
         text.setValue(this.plugin.settings[key]); if (secret) text.inputEl.type = 'password';
         text.onChange(async value => {
@@ -538,5 +572,11 @@ class ChatSettings extends PluginSettingTab {
       try { const info = await this.plugin.client().info(); new Notice('连接成功 · OpenCode ' + info.version); }
       catch (error) { new Notice(error instanceof Error ? error.message : '连接失败'); }
     }));
+    this.containerEl.createEl('h2', { text: '一键记录' });
+    this.containerEl.createEl('p', { text: '桌面入口直接打开记录框，离线保存到本地 InBox。复制链接后用手机桌面的快捷方式功能配置；冷启动需等待 Obsidian 加载。' });
+    new Setting(this.containerEl).setName('桌面链接').addText(text => {
+      text.setValue(captureUri(this.app.vault.getName())); text.inputEl.readOnly = true;
+    }).addButton(button => button.setButtonText('复制').onClick(() => this.plugin.copyCaptureLink()));
+    new Setting(this.containerEl).setName('试用记录框').addButton(button => button.setButtonText('一键记录').onClick(() => this.plugin.openCapture()));
   }
 }

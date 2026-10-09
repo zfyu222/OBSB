@@ -23,6 +23,114 @@ const { Platform } = await import('../.test-build/main.mjs');
 const { Modal, FormCards } = await import('../.test-build/main.mjs');
 const tick = () => new Promise(resolve => setTimeout(resolve, 0));
 
+async function captureSetup(initial = {}, ready = true) {
+  const { TFolder, TFile } = await import('../.test-build/main.mjs');
+  const nodes = new Map(); const contents = new Map(); const writes = []; const layouts = [];
+  const app = { workspace: { onLayoutReady: callback => ready ? callback() : layouts.push(callback) }, vault: {
+    getName: () => '我的知识库 & 灵感', getAbstractFileByPath: path => nodes.get(path),
+    createFolder: async path => { nodes.set(path, new TFolder(path)); },
+    create: async (path, content) => { if (nodes.has(path)) throw new Error('already exists'); nodes.set(path, new TFile(path)); contents.set(path, content); writes.push({ path, content }); },
+    read: async file => contents.get(file.path),
+  } };
+  let stored = structuredClone(initial); const plugin = new Plugin(app);
+  plugin.loadData = async () => structuredClone(stored);
+  plugin.saveData = async data => { stored = structuredClone(data); };
+  plugin.client = () => { throw new Error('Capture must never connect to a server'); };
+  await plugin.onload();
+  return { plugin, app, nodes, contents, writes, stored: () => stored, ready: () => { ready = true; for (const callback of layouts.splice(0)) callback(); } };
+}
+
+test('capture URI targets the encoded vault; cold launch queues once and rejects the wrong vault', async () => {
+  const { captureUri } = await import('../.test-build/main.mjs');
+  const { plugin, ready, writes } = await captureSetup({}, false);
+  try {
+    assert.equal(captureUri('我的知识库 & 灵感'), 'obsidian://obsb-capture?vault=%E6%88%91%E7%9A%84%E7%9F%A5%E8%AF%86%E5%BA%93%20%26%20%E7%81%B5%E6%84%9F');
+    const invoke = plugin.protocols.get('obsb-capture');
+    invoke({ vault: '其他仓库' }); ready(); assert.equal(plugin.captureModal, undefined);
+    invoke({ vault: '我的知识库 & 灵感' }); const modal = plugin.captureModal;
+    invoke({ vault: '我的知识库 & 灵感' }); assert.equal(plugin.captureModal, modal);
+    assert.equal(writes.length, 0); modal.close();
+  } finally { plugin.onunload(); }
+  const cold = await captureSetup({}, false);
+  try {
+    cold.plugin.openCapture(); cold.plugin.openCapture(); assert.equal(cold.plugin.captureModal, undefined);
+    cold.ready(); assert.ok(cold.plugin.captureModal); cold.plugin.captureModal.close();
+  } finally { cold.plugin.onunload(); }
+});
+
+test('capture saves literal multiline Markdown to Inbox offline and closes without opening the note', async () => {
+  const { plugin, writes, stored } = await captureSetup();
+  try {
+    plugin.commands.get('quick-capture').callback(); const modal = plugin.captureModal;
+    const input = modal.contentEl.querySelector('textarea'); input.value = '  灵感\n[[Raw/笔记]]\nhttps://example.test/a?q=1  ';
+    input.dispatchEvent(new window.Event('input'));
+    Array.from(modal.contentEl.querySelectorAll('button')).find(button => button.textContent === '保存').click(); await tick(); await tick();
+    assert.equal(writes.length, 1); assert.match(writes[0].path, /^InBox\/灵感-\d{4}-\d{2}-\d{2}-\d{6}-\d{3}\.md$/);
+    assert.equal(writes[0].content, '  灵感\n[[Raw/笔记]]\nhttps://example.test/a?q=1  \n');
+    assert.equal(stored().capture.draft, ''); assert.equal(plugin.captureModal, undefined);
+  } finally { plugin.onunload(); }
+});
+
+test('closing a capture persists the draft and restores it after plugin restart; plain Enter does not save', async () => {
+  const { plugin, stored, writes } = await captureSetup();
+  plugin.openCapture(); const input = plugin.captureModal.contentEl.querySelector('textarea');
+  input.value = '还没写完的灵感'; input.dispatchEvent(new window.Event('input'));
+  input.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', cancelable: true })); assert.equal(writes.length, 0);
+  plugin.captureModal.close(); await plugin.save(); plugin.onunload();
+  const restarted = await captureSetup(stored());
+  try { restarted.plugin.openCapture(); assert.equal(restarted.plugin.captureModal.contentEl.querySelector('textarea').value, '还没写完的灵感'); }
+  finally { restarted.plugin.onunload(); }
+});
+
+test('blank capture and file-instead-of-Inbox are rejected without clearing the draft', async () => {
+  const { saveCapture, TFile } = await import('../.test-build/main.mjs');
+  const { app, nodes, writes } = await captureSetup(); const state = { draft: ' \n ' };
+  await assert.rejects(() => saveCapture(app, state, async () => {}), /请先输入/);
+  state.draft = '灵感'; nodes.set('InBox', new TFile('InBox'));
+  await assert.rejects(() => saveCapture(app, state, async () => {}), /同名文件占用/);
+  assert.equal(writes.length, 0); assert.equal(state.draft, '灵感');
+});
+
+test('same-time captures choose distinct names and never overwrite an existing note', async () => {
+  const { saveCapture } = await import('../.test-build/main.mjs'); const { app, writes } = await captureSetup();
+  const now = new Date(2026, 9, 9, 12, 34, 56, 7);
+  await saveCapture(app, { draft: '第一条' }, async () => {}, now);
+  await saveCapture(app, { draft: '第二条' }, async () => {}, now);
+  assert.deepEqual(writes.map(write => write.path), ['InBox/灵感-2026-10-09-123456-007.md', 'InBox/灵感-2026-10-09-123456-007-2.md']);
+  assert.deepEqual(writes.map(write => write.content), ['第一条\n', '第二条\n']);
+});
+
+test('capture write failure retains input; cleanup failure retries the already-written file exactly once', async () => {
+  const { saveCapture } = await import('../.test-build/main.mjs'); const { app, writes } = await captureSetup();
+  const state = { draft: '不能丢失' }; const create = app.vault.create;
+  app.vault.create = async () => { throw new Error('offline storage'); };
+  await assert.rejects(() => saveCapture(app, state, async () => {}), /offline storage/); assert.equal(state.draft, '不能丢失');
+  app.vault.create = create; let saves = 0;
+  await assert.rejects(() => saveCapture(app, state, async () => { if (++saves === 2) throw new Error('disk error'); }), /笔记已保存.*草稿清理失败/);
+  assert.equal(writes.length, 1); assert.equal(state.draft, '不能丢失');
+  await saveCapture(app, state, async () => {}); assert.equal(writes.length, 1); assert.equal(state.draft, '');
+});
+
+test('repeated save and URI activation while saving cannot create a second capture', async () => {
+  const { plugin, app, writes } = await captureSetup(); let release;
+  const create = app.vault.create; app.vault.create = async (...args) => { await new Promise(resolve => { release = resolve; }); await create(...args); };
+  try {
+    plugin.openCapture(); const modal = plugin.captureModal; const input = modal.contentEl.querySelector('textarea'); input.value = '一条灵感';
+    const save = Array.from(modal.contentEl.querySelectorAll('button')).find(button => button.textContent === '保存');
+    save.dispatchEvent(new window.Event('click')); save.dispatchEvent(new window.Event('click')); await tick();
+    modal.close(); plugin.openCapture(); assert.equal(plugin.captureModal, modal); assert.equal(writes.length, 0);
+    release(); await tick(); await tick(); assert.equal(writes.length, 1); assert.equal(plugin.captureModal, undefined);
+  } finally { plugin.onunload(); }
+});
+
+test('settings and capture draft writes are serialized and persist the latest values together', async () => {
+  const { plugin } = await captureSetup(); let inFlight = 0; const saved = [];
+  plugin.saveData = async data => { assert.equal(inFlight++, 0); await tick(); saved.push(data); inFlight--; };
+  plugin.settings.capture.draft = '我的灵感'; const first = plugin.save();
+  plugin.settings.serverUrl = 'https://example.test'; const second = plugin.save(); await Promise.all([first, second]);
+  assert.equal(saved.at(-1).capture.draft, '我的灵感'); assert.equal(saved.at(-1).serverUrl, 'https://example.test'); plugin.onunload();
+});
+
 test('pending forms retain input through polling and submit choices, custom text, false and numbers', async () => {
   const { view, client, sent } = await setup();
   const form = { id: 'frm_one', sessionID: 'ses_one', title: '选择方案', fields: [

@@ -4,5 +4,7 @@ export { Notice } from 'obsidian';
 export { Platform } from 'obsidian';
 export { Modal } from 'obsidian';
 export { FormCards } from '../src/forms.ts';
+export { captureUri, saveCapture } from '../src/capture.ts';
+export { TFile, TFolder } from 'obsidian';
 import { TFile } from 'obsidian';
 export const createMockFile = path => new TFile(path);
