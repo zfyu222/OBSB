@@ -4,7 +4,7 @@ import { FormCards } from './forms';
 import { ConfirmAction, SessionManager } from './sessions';
 import { copyMessage } from './clipboard';
 import { CaptureModal, captureUri, type CaptureState } from './capture';
-import { applyTextDelta, chronological, commandInput, messageText, noteTarget, type Message, type Permission, type Session, type StreamPreview } from './protocol';
+import { applyTextDelta, chatUri, chronological, commandInput, messageText, noteTarget, type Message, type Permission, type Session, type StreamPreview } from './protocol';
 
 const VIEW = 'obsb-chat';
 interface Settings extends Connection { serverVault: string; lastSession: string; capture?: CaptureState }
@@ -15,6 +15,7 @@ export default class ObsbChatPlugin extends Plugin {
   settings: Settings = { ...DEFAULTS };
   private captureModal?: CaptureModal;
   private captureQueued = false;
+  private chatQueued = false;
   private unloaded = false;
   private saveQueue: Promise<void> = Promise.resolve();
   async onload(): Promise<void> {
@@ -29,6 +30,11 @@ export default class ObsbChatPlugin extends Plugin {
     this.addCommand({ id: 'copy-capture-link', name: '复制一键记录桌面链接', callback: () => { void this.copyCaptureLink(); } });
     this.addRibbonIcon('pencil', '一键记录', () => this.openCapture());
     this.registerView(VIEW, leaf => new ChatView(leaf, this));
+    this.registerObsidianProtocolHandler('obsb-chat', params => {
+      if (params.vault && params.vault !== this.app.vault.getName()) { new Notice('请先打开桌面链接指定的仓库，再打开 AI 管家'); return; }
+      this.openChatShortcut();
+    });
+    this.addCommand({ id: 'copy-chat-link', name: '复制 AI 管家桌面链接', callback: () => { void this.copyChatLink(); } });
     this.addSettingTab(new ChatSettings(this));
     this.addRibbonIcon('messages-square', '打开 AI 管家', () => { void this.openChat(); });
     this.addCommand({ id: 'open-chat', name: '打开 AI 管家', callback: () => { void this.openChat(); } });
@@ -67,6 +73,20 @@ export default class ObsbChatPlugin extends Plugin {
   }
   async copyCaptureLink(): Promise<void> {
     try { await copyMessage(captureUri(this.app.vault.getName()), document); new Notice('已复制桌面链接；快捷方式名称设为“一键记录”'); }
+    catch (error) { new Notice(error instanceof Error ? error.message : '复制失败'); }
+  }
+  openChatShortcut(): void {
+    if (this.unloaded || this.chatQueued) return;
+    this.chatQueued = true;
+    this.app.workspace.onLayoutReady(() => {
+      if (this.unloaded) { this.chatQueued = false; return; }
+      void this.openChat().catch(error => {
+        new Notice(error instanceof Error ? error.message : '打开 AI 管家失败');
+      }).finally(() => { this.chatQueued = false; });
+    });
+  }
+  async copyChatLink(): Promise<void> {
+    try { await copyMessage(chatUri(this.app.vault.getName()), document); new Notice('已复制桌面链接；快捷方式名称设为“OBSB AI 管家”'); }
     catch (error) { new Notice(error instanceof Error ? error.message : '复制失败'); }
   }
   onunload(): void { this.unloaded = true; this.captureModal?.close(); }
@@ -578,5 +598,11 @@ class ChatSettings extends PluginSettingTab {
       text.setValue(captureUri(this.app.vault.getName())); text.inputEl.readOnly = true;
     }).addButton(button => button.setButtonText('复制').onClick(() => this.plugin.copyCaptureLink()));
     new Setting(this.containerEl).setName('试用记录框').addButton(button => button.setButtonText('一键记录').onClick(() => this.plugin.openCapture()));
+    this.containerEl.createEl('h2', { text: '一键打开 AI 管家' });
+    this.containerEl.createEl('p', { text: '复制链接后配置名为“OBSB AI 管家”的桌面快捷方式，点击直接打开当前聊天。冷启动需等待 Obsidian 加载。' });
+    new Setting(this.containerEl).setName('桌面链接').addText(text => {
+      text.setValue(chatUri(this.app.vault.getName())); text.inputEl.readOnly = true;
+    }).addButton(button => button.setButtonText('复制').onClick(() => this.plugin.copyChatLink()));
+    new Setting(this.containerEl).setName('试用聊天入口').addButton(button => button.setButtonText('打开 AI 管家').onClick(() => this.plugin.openChatShortcut()));
   }
 }

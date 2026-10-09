@@ -1,7 +1,7 @@
 {
   "id": "obsb-chat",
   "name": "OBSB AI 管家",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "minAppVersion": "1.6.0",
   "description": "在 Obsidian 内与 NAS OpenCode 对话，点击引用打开本地笔记。",
   "author": "OBSB",

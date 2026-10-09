@@ -1,3 +1,5 @@
+export function chatUri(vault: string): string { return `obsidian://obsb-chat?vault=${encodeURIComponent(vault)}`; }
+
 export interface Session {
   id: string; parentID?: string; title?: string; location?: { directory?: string }; time?: { created?: number; updated?: number };
 }

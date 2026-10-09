@@ -40,6 +40,41 @@ async function captureSetup(initial = {}, ready = true) {
   return { plugin, app, nodes, contents, writes, stored: () => stored, ready: () => { ready = true; for (const callback of layouts.splice(0)) callback(); } };
 }
 
+test('chat shortcut encodes the vault and coalesces cold and in-flight launches', async () => {
+  const { chatUri } = await import('../.test-build/main.mjs');
+  const cold = await captureSetup({}, false); let calls = 0; let finish;
+  cold.plugin.openChat = () => { calls++; return new Promise(resolve => { finish = resolve; }); };
+  try {
+    assert.equal(chatUri('我的知识库 & 灵感'), 'obsidian://obsb-chat?vault=%E6%88%91%E7%9A%84%E7%9F%A5%E8%AF%86%E5%BA%93%20%26%20%E7%81%B5%E6%84%9F');
+    const invoke = cold.plugin.protocols.get('obsb-chat');
+    invoke({ vault: '其他仓库' }); assert.equal(cold.plugin.chatQueued, false);
+    invoke({ vault: '我的知识库 & 灵感' }); invoke({}); assert.equal(calls, 0);
+    cold.ready(); assert.equal(calls, 1); invoke({}); assert.equal(calls, 1);
+    finish(); await tick(); invoke({}); assert.equal(calls, 2); finish(); await tick();
+    assert.equal(cold.writes.length, 0);
+  } finally { cold.plugin.onunload(); }
+});
+
+test('chat shortcut cancels unloaded launches and permits retry after an opening error', async () => {
+  const cold = await captureSetup({}, false); let calls = 0;
+  cold.plugin.openChat = async () => { calls++; };
+  cold.plugin.openChatShortcut(); cold.plugin.onunload(); cold.ready(); assert.equal(calls, 0);
+  const live = await captureSetup();
+  live.plugin.openChat = async () => { calls++; throw new Error('open failed'); };
+  try {
+    live.plugin.openChatShortcut(); await tick(); assert.equal(live.plugin.chatQueued, false);
+    live.plugin.openChatShortcut(); await tick(); assert.equal(calls, 2);
+  } finally { live.plugin.onunload(); }
+});
+
+test('chat shortcut reveals an existing chat without creating a tab or sending a request', async () => {
+  const { plugin, app } = await captureSetup(); const leaf = {}; let shown;
+  app.workspace.getLeavesOfType = () => [leaf]; app.workspace.revealLeaf = async value => { shown = value; };
+  const mobile = Platform.isMobile; Platform.isMobile = false;
+  try { plugin.openChatShortcut(); await tick(); assert.equal(shown, leaf); }
+  finally { Platform.isMobile = mobile; plugin.onunload(); }
+});
+
 test('capture URI targets the encoded vault; cold launch queues once and rejects the wrong vault', async () => {
   const { captureUri } = await import('../.test-build/main.mjs');
   const { plugin, ready, writes } = await captureSetup({}, false);
