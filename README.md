@@ -2,6 +2,9 @@
 
 一个仓库维护 Obsidian 知识库框架及原生 AI 聊天插件。插件源码位于 `plugins/obsb-chat/`；框架、Skills、工具和部署文档仍在同一个仓库，不需要维护第二份插件工程。
 
+本项目也维护 [Enhancing Mindmap fork](https://github.com/zfyu222/obsidian-enhancing-mindmap)，用于直接编辑普通 Markdown 思维导图。该第三方插件的源码和 Release 保留在独立 fork，本仓库管理维护入口、需求和发布流程。
+按需入口：[维护 Skill](.opencode/skills/mindmap-plugin-maintenance/SKILL.md)；安装及开发：[思维导图插件维护](docs/思维导图插件维护.md)。日常笔记任务无需读取这些资料。
+
 ## 手机和电脑安装插件
 
 1. 在 Obsidian 的“设置 → 社区插件 → 浏览”中安装并启用 **BRAT**。

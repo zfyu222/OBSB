@@ -20,3 +20,8 @@
 新用户在社区安装 BRAT → Add Beta Plugin → 填写 `https://github.com/zfyu222/OBSB` → 安装并启用。插件仅为现有 OpenCode 2.x 的客户端，每人填写自己的服务连接设置，不分享 NAS 密码或 DeepSeek Key。
 
 当前未申请官方社区目录，也未替用户选择项目整体的开源许可证；若申请社区发布，再确认许可证和移动端验收。
+
+## 思维导图 fork 的独立发布
+
+2026-10-12 纳入项目维护的 Enhancing Mindmap 使用 `zfyu222/obsidian-enhancing-mindmap` 独立 fork，沿用上游许可证。它不在 `plugins/obsb-chat/`，也不使用 OBSB 的根 manifest、tag 或本仓库的发布工作流。
+源码和 Release 在 fork，本项目通过[维护 Skill](../.opencode/skills/mindmap-plugin-maintenance/SKILL.md)按需加载[维护文档](思维导图插件维护.md)。BRAT 添加的是 `zfyu222/obsidian-enhancing-mindmap`，首版 `0.2.6-beta.1` 已发布；AI 管家的 BRAT 仓库仍为 `zfyu222/OBSB`。

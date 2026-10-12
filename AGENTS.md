@@ -11,3 +11,4 @@ OpenCode `workspace` 的日常对话默认围绕 `vault/` 中的笔记：先搜�
 - 用户要求完整记忆整理时，使用 `/run-nightly`，让编排器执行隔离、校验、冲突检查、报告和 Git 流程。日常对话不要自行模拟该流程。需要细则时再读 `docs/知识库维护规则.md`；完整整理的隔离会话会单独收到这份规则。
 - 日常知识库任务只检索相关的 `vault/` Markdown，不预先读取 `docs/`、`deploy/`、`tools/`、`tests/` 或框架 Git 历史。只有用户明确讨论或开发知识库框架、部署、配置与运行机制时，才先读 `docs/框架开发入口.md`，再按其中索引读取所需文档。
 - 不修改 `.obsidian/`、`secrets/` 或二进制附件，除非用户明确要求且符合对应工作流。
+- 用户要求开发、排查或发布 Enhancing Mindmap / `obsidian-enhancing-mindmap` fork 时，先加载 `.opencode/skills/mindmap-plugin-maintenance/SKILL.md`；这是本项目维护范围，源码和 Release 在独立 fork 中。仅编辑思维导图对应的笔记仍走知识库 Skills，不加载插件开发资料。
