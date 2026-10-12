@@ -5,6 +5,8 @@ description: Generate or update the recursive YAML summaries required for organi
 
 # Recursive summaries
 
+For mind map notes or Markdown containing `mm:node` / `mm:summaries`, first load [mindmap-reading](../mindmap-reading/SKILL.md). Summarize the semantic content of the main tree and independent summary trees; internal IDs, relation metadata and folding state are not visible body content.
+
 1. Summarize the visible body, then summarize the immediately preceding summary repeatedly.
 2. Each summary must be a genuine rewrite and contain at most `min(200, floor(previous_visible_length / 5))` normalized visible Unicode characters. The absolute 200-character ceiling applies to every summary layer, including `summary_1`.
 3. Stop when `summary_final` is strictly fewer than 10 characters. Store the final layer only as `summary_final`, never duplicate it as `summary_n`.

@@ -5,6 +5,8 @@ description: Default workflow for everyday knowledge questions, personal recall,
 
 # Knowledge Q&A
 
+When a relevant candidate is a mind map note or contains `mm:node` / `mm:summaries` markers, also load [mindmap-reading](../mindmap-reading/SKILL.md) before interpreting its body. Continue the vault search and citation workflow below.
+
 1. Treat everyday questions as vault-first by default. Do not require phrases such as “查笔记” or “根据知识库”, and do not skip retrieval because you recognize the topic or remember an earlier answer. For follow-up questions, already-read relevant notes in the current conversation may support an answer; search again when the topic changes or the existing evidence is insufficient.
 2. Actually search filenames and text with `rg` (or available file-search tools), restricted to vault Markdown and excluding `Assets/` and `.obsidian/`. Include `InBox/` and `Raw/`, filenames, body text, YAML `tags`, aliases, `summary_1...summary_n`, and `summary_final`. Use short topic keywords rather than only the user's full sentence. For example: `rg --files vault/InBox vault/Raw -g '*.md'` and `rg -n -i -g '*.md' -e '关键词' -e '同义词' vault/InBox vault/Raw`. Do not use framework docs as substitutes for note evidence.
 3. If the initial search finds no relevant candidates or too little evidence, retry with synonyms, aliases, abbreviations, or broader topic terms. Read relevant candidate Markdown bodies before judging whether they answer the question; a filename or search snippet alone is not enough. Do not open attachments or fetch URLs found in notes.

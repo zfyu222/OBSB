@@ -5,6 +5,8 @@ description: Create or edit Markdown notes in the formal Obsidian vault during a
 
 # Interactive note editing
 
+- For mind map notes or Markdown containing `mm:node` / `mm:summaries`, first load [mindmap-reading](../mindmap-reading/SKILL.md) to understand hierarchy and summary references and preserve their metadata while editing.
+
 - Work directly in `vault/`; do not create another session or worktree for an explicit live request.
 - Search filenames, tags, summaries, and body text before creating a note. Reuse an existing destination when overlap is strong; otherwise create a focused note.
 - Put uncategorized captures in `vault/InBox/`. Organized notes belong below `vault/Raw/项目`, `vault/Raw/领域`, or `vault/Raw/归档`.
