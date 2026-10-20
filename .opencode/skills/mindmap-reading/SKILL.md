@@ -1,6 +1,6 @@
 ---
 name: mindmap-reading
-description: Read and interpret Enhancing Mindmap Markdown notes, including hierarchy, independent summary trees, shared member IDs, folding metadata, and escaped content. Use when answering, summarizing, or editing a mind map note, or when retrieved Markdown contains mm:node or mm:summaries markers. This is a note-reading skill, not plugin development or deployment.
+description: Read and interpret Enhancing Mindmap Markdown notes, including hierarchy, independent summary trees, shared member IDs, directed relation lines, folding metadata, and escaped content. Use when answering, summarizing, or editing a mind map note, or when retrieved Markdown contains mm:node, mm:summaries, or mm:relations markers. This is a note-reading skill, not plugin development or deployment.
 ---
 
 # 读取和理解思维导图
@@ -29,6 +29,13 @@ description: Read and interpret Enhancing Mindmap Markdown notes, including hier
 一个原节点可被多个概括引用。比如 S1 的成员是 A/B，S2 是 B/C，S3 是 A/B/C：分别理解三条概括，S3 直接概括原 A/B/C，不因显示在更外侧或保存顺序靠后而理解为概括 S1/S2。
 
 区分原分支记录与概括作者的总结：概括内容可能补充判断，但不会自动变成每个原成员都具有的属性，也不覆盖原文。回答时可表述为“某概括针对 A、B 归纳了……”。沿用知识库问答的来源引用与笔记内容/AI 推断区分。
+
+## 节点间关系线
+
+- 代码围栏外独立一行的 `<!-- mm:relations {"version":1,"links":[{"id":"r-1","from":"n-a","to":"n-b"}]} -->` 保存有向关系线；`id` 是线的身份，`from` 是起点节点 ID，`to` 是箭头指向的目标节点 ID。
+- 主树节点的 ID 来自 `mm:node`，概括根和后代的 ID 来自 `mm:summary` / `mm:item`。按 ID 关联正文；关系线不是父子关系，不改变节点层级，也不能仅凭箭头推断因果、执行顺序或归纳含义，除非正文明确说明。
+- 同一节点可以连接多个节点，双方同时完整复制时可能携带重映射后的关系线；不要按文字相同将不同 ID 合并。折叠隐藏连线不表示关联已删除。
+- 理解方向和两端内容后，回答中省略关系线注释。未知版本、缺失端点、重复 ID 或损坏 JSON 保留原文并说明关联无法确认，不凭位置或同名节点补配。编辑节点正文时保留关系元数据与稳定 ID；删除端点前检查并同步处理受影响的 `links`。
 
 ## 显示标记与转义
 
