@@ -1,6 +1,6 @@
 ---
 name: mindmap-reading
-description: Read and interpret Enhancing Mindmap Markdown notes, including hierarchy, independent summary trees, shared member IDs, directed relation lines, folding metadata, and escaped content. Use when answering, summarizing, or editing a mind map note, or when retrieved Markdown contains mm:node, mm:summaries, or mm:relations markers. This is a note-reading skill, not plugin development or deployment.
+description: Read and interpret Enhancing Mindmap Markdown notes, including hierarchy, independent summary trees, shared member IDs, virtual grafted subtrees, directed relation lines, folding metadata, and escaped content. Use when answering, summarizing, or editing a mind map note, or when retrieved Markdown contains mm:node, mm:summaries, mm:grafts, or mm:relations markers. This is a note-reading skill, not plugin development or deployment.
 ---
 
 # 读取和理解思维导图
@@ -36,6 +36,13 @@ description: Read and interpret Enhancing Mindmap Markdown notes, including hier
 - 主树节点的 ID 来自 `mm:node`，概括根和后代的 ID 来自 `mm:summary` / `mm:item`。按 ID 关联正文；关系线不是父子关系，不改变节点层级，也不能仅凭箭头推断因果、执行顺序或归纳含义，除非正文明确说明。
 - 同一节点可以连接多个节点，双方同时完整复制时可能携带重映射后的关系线；不要按文字相同将不同 ID 合并。折叠隐藏连线不表示关联已删除。
 - 理解方向和两端内容后，回答中省略关系线注释。未知版本、缺失端点、重复 ID 或损坏 JSON 保留原文并说明关联无法确认，不凭位置或同名节点补配。编辑节点正文时保留关系元数据与稳定 ID；删除端点前检查并同步处理受影响的 `links`。
+
+## 虚拟分支与共享来源
+
+- 代码围栏外独立一行的 `<!-- mm:grafts {"version":1,"links":[{"id":"g-1","source":"n-a","target":"n-b"}]} -->` 表示在 B 节点下显示 A 及其完整子树。`source` 指向唯一真实来源，`target` 是显示嫁接的位置，`id` 是引用本身的身份。
+- 先按 `mm:node` / `mm:summary` / `mm:item` 的 ID 找到来源正文，再理解虚拟显示。B 的 Markdown 下没有第二份 A 正文；不要把虚拟显示计为新的独立知识，也不要据此改变 A 的真实父节点或推断新的因果关系。
+- 来源的文字、样式和子树修改会同步到所有引用处，虚拟节点上的编辑也作用于来源。用户要求修改虚拟分支内容时修改来源正文；要求解除嫁接时仅删除相应 `links` 项，不删除来源子树。删除来源或目标前检查并处理受影响的引用。
+- 缺失来源、重复 ID、未知版本或循环引用时保留原元数据，说明无法确定或展开关联，不按同名节点猜配，不递归展开循环。理解引用后在日常回答中省略内部注释。
 
 ## 显示标记与转义
 
