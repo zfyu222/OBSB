@@ -5,6 +5,8 @@ description: Create or edit Markdown notes in the formal Obsidian vault during a
 
 # Interactive note editing
 
+- OBSB task documents under `Raw/任务管理/` use `obsb-file`, `obsb-node`, `obsb-end` comments and stable node IDs. Preserve all boundaries, IDs, unknown properties and `nightly_maintenance: skip`. Do not merge, split or reorganize them as ordinary knowledge prose; task parentage is stored in node metadata, not heading depth. Completed nodes remain current until explicit archive. For file format and supported operations read `plugins/obsb-tasks/README.md`; use the plugin for structured changes or a format-aware edit with validation. Default retrieval excludes archive/sleeping records per `knowledge-qa`; do not restore archived content implicitly.
+
 - For mind map notes or Markdown containing `mm:node` / `mm:summaries`, first load [mindmap-reading](../mindmap-reading/SKILL.md) to understand hierarchy and summary references and preserve their metadata while editing.
 
 - Work directly in `vault/`; do not create another session or worktree for an explicit live request.

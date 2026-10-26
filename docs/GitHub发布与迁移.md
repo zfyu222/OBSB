@@ -25,3 +25,13 @@
 
 2026-10-12 纳入项目维护的 Enhancing Mindmap 使用 `zfyu222/obsidian-enhancing-mindmap` 独立 fork，沿用上游许可证。它不在 `plugins/obsb-chat/`，也不使用 OBSB 的根 manifest、tag 或本仓库的发布工作流。
 源码和 Release 在 fork，本项目通过[维护 Skill](../.opencode/skills/mindmap-plugin-maintenance/SKILL.md)按需加载[维护文档](思维导图插件维护.md)。BRAT 添加的是 `zfyu222/obsidian-enhancing-mindmap`，首版 `0.2.6-beta.1` 已发布；AI 管家的 BRAT 仓库仍为 `zfyu222/OBSB`。
+
+## 任务管理插件的独立发布
+
+2026-10-26 用户要求提交 Git 并提供 BRAT 更新。任务插件 ID 为 `obsb-tasks`，BRAT 仓库为 `zfyu222/obsb-tasks`，与 AI 管家、思维导图分别发行，根 manifest 和 tag 不混用。
+
+开发主源在本仓库 `plugins/obsb-tasks/`，通过插件的 `scripts/export-release.mjs` 白名单导出到独立发行镜像。本机镜像位于被主工程忽略的 `runtime/obsb-tasks-release/`；不在插件目录中嵌入另一个 Git 仓库，也不导出 vault、框架、运行数据或秘密。独立仓库包含根 manifest、versions、构建源码与发布工作流，可以独立复现构建。
+
+独立发行仓库提交并推送后，推送与 manifest 一致的版本 tag。独立仓库 `.github/workflows/release.yml` 运行检查、测试、构建，上传三个未压缩安装附件。BRAT 添加 `https://github.com/zfyu222/obsb-tasks`。维护步骤和测试边界见[插件说明](../plugins/obsb-tasks/README.md#git-与-brat-发布维护)。本次发行不代表已在 Windows／Android 安装验收。
+
+首版 [0.1.0 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.1.0) 已发布，源码提交 `f19094c49418453c34f0f44b5ebbff2bf08b3e4f`。[发布工作流](https://github.com/zfyu222/obsb-tasks/actions/runs/40315128968) 的 23 项测试、类型检查和构建通过；下载三个 Release 附件核对 SHA-256，均与本地构建一致。主工程当时存在 34 条既有未推送提交，本次保留其推送状态，仅在主工程保存当前任务提交，插件完整源码和 Release 已独立推送。
