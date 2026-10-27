@@ -35,3 +35,5 @@
 独立发行仓库提交并推送后，推送与 manifest 一致的版本 tag。独立仓库 `.github/workflows/release.yml` 运行检查、测试、构建，上传三个未压缩安装附件。BRAT 添加 `https://github.com/zfyu222/obsb-tasks`。维护步骤和测试边界见[插件说明](../plugins/obsb-tasks/README.md#git-与-brat-发布维护)。本次发行不代表已在 Windows／Android 安装验收。
 
 首版 [0.1.0 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.1.0) 已发布，源码提交 `f19094c49418453c34f0f44b5ebbff2bf08b3e4f`。[发布工作流](https://github.com/zfyu222/obsb-tasks/actions/runs/40315128968) 的 23 项测试、类型检查和构建通过；下载三个 Release 附件核对 SHA-256，均与本地构建一致。主工程当时存在 34 条既有未推送提交，本次保留其推送状态，仅在主工程保存当前任务提交，插件完整源码和 Release 已独立推送。
+
+2026-10-27 [0.1.1 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.1.1) 已发布：Tab／Enter 直接建节点、节点名称原位编辑、右侧属性和节点类型自动保存。发行源码提交 `2f24add457d917d621ec9611d34da00e34d40e6a`，[CI](https://github.com/zfyu222/obsb-tasks/actions/runs/40452350574) 的 33 项测试、类型检查、构建通过，下载三个附件与本地构建 SHA-256 比对一致。BRAT 更新仓库仍为 `zfyu222/obsb-tasks`；未自动更新客户端。
