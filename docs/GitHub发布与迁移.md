@@ -37,3 +37,5 @@
 首版 [0.1.0 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.1.0) 已发布，源码提交 `f19094c49418453c34f0f44b5ebbff2bf08b3e4f`。[发布工作流](https://github.com/zfyu222/obsb-tasks/actions/runs/40315128968) 的 23 项测试、类型检查和构建通过；下载三个 Release 附件核对 SHA-256，均与本地构建一致。主工程当时存在 34 条既有未推送提交，本次保留其推送状态，仅在主工程保存当前任务提交，插件完整源码和 Release 已独立推送。
 
 2026-10-27 [0.1.1 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.1.1) 已发布：Tab／Enter 直接建节点、节点名称原位编辑、右侧属性和节点类型自动保存。发行源码提交 `2f24add457d917d621ec9611d34da00e34d40e6a`，[CI](https://github.com/zfyu222/obsb-tasks/actions/runs/40452350574) 的 33 项测试、类型检查、构建通过，下载三个附件与本地构建 SHA-256 比对一致。BRAT 更新仓库仍为 `zfyu222/obsb-tasks`；未自动更新客户端。
+
+2026-10-27 [0.2.0 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.2.0) 已发布，发行源码提交 `83d76d1dbfaaa0c53dc822dd88ed07940f7fa951`。[CI](https://github.com/zfyu222/obsb-tasks/actions/runs/40493135681) 通过 45 项测试、类型检查、构建及新增实际 bundle 检查。提取 Enhancing Mindmap beta.41 内核，保留 MIT 声明；下载 main.js、manifest.json、styles.css 的 SHA-256 均与本地构建一致，实际发布包中已核对版权声明。生产包浏览器夹具中验证鼠标平移、节点拖入领域和撤销；原 fork 未修改，任务文件无需迁移，客户端实机仍待验收。
