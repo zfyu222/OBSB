@@ -41,3 +41,5 @@
 2026-10-27 [0.2.0 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.2.0) 已发布，发行源码提交 `83d76d1dbfaaa0c53dc822dd88ed07940f7fa951`。[CI](https://github.com/zfyu222/obsb-tasks/actions/runs/40493135681) 通过 45 项测试、类型检查、构建及新增实际 bundle 检查。提取 Enhancing Mindmap beta.41 内核，保留 MIT 声明；下载 main.js、manifest.json、styles.css 的 SHA-256 均与本地构建一致，实际发布包中已核对版权声明。生产包浏览器夹具中验证鼠标平移、节点拖入领域和撤销；原 fork 未修改，任务文件无需迁移，客户端实机仍待验收。
 
 2026-10-27 [0.2.1 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.2.1) 已发布，发行源码提交 `0bfc0cd6ea795cd59402725e1c943e27a465f921`。[CI](https://github.com/zfyu222/obsb-tasks/actions/runs/40494666198) 通过 46 项测试、类型检查、构建及实际 bundle 检查。完成时间由 ISO 文本改为本地日期时间选择器，新增上海／纽约时区往返保存和自动填写回归；三个附件下载 SHA-256 与本地构建一致。BRAT 更新后重新加载插件，旧任务格式兼容，实机仍待验收。
+
+2026-10-27 [0.3.0 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.3.0) 已发布，发行源码提交 `7a523d38dbdb8c3651d3e0bfde384dd9d95d26cc`。[CI](https://github.com/zfyu222/obsb-tasks/actions/runs/40498418928) 通过 57 项测试、类型检查、构建及实际发布包检查。数据改为可读 Markdown 树，原节点 ID、属性与注释保留；新增精确原文备份和逐文件迁移命令，并以同级位置修正移动子树的撤销。实际包验证迁移命令先保存草稿、产生新格式及原文备份；三个附件下载 SHA-256 与本地构建一致。所有设备先更新再迁移；原生搜索需排除格式备份目录，框架 AI 检索规则已更新。未直接迁移正式 vault，Windows／Android 与同步待实机验收。
