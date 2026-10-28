@@ -47,3 +47,5 @@
 2026-10-28 [0.3.1 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.3.1) 已发布，发行源码提交 `620cd87d8e8c3fe005b97761e8d3c3212f168d25`。[CI](https://github.com/zfyu222/obsb-tasks/actions/runs/40646258392) 通过 59 项测试、类型检查、构建及实际包检查。导图改为 24px 单行节点、较小间距和优先级颜色，完成任务灰色删除线；适配层对提取布局增加首轮布局前间距配置，独立 fork 未修改。三个附件下载 SHA-256 与本地一致；实际包浏览器夹具验证优先级即时变色和完成样式，截图保存在本机 artifacts。BRAT 更新后重新加载，无需数据迁移；实机待验收。
 
 2026-10-28 [0.3.2 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.3.2) 已发布，发行源码提交 `8247ec0541f9b2c7048afd887d1ed3e6b33b9740`。[CI](https://github.com/zfyu222/obsb-tasks/actions/runs/40646772246) 通过 59 项测试、类型检查、构建及实际包检查。领域名称移除方框前缀，使用主题灰色常规文字，几何宽度去除图标预留；任务颜色和数据格式不变。三附件下载 SHA-256 与本地一致，浏览器夹具已核对样式，BRAT 更新后重新加载即可，客户端未自动安装。
+
+2026-10-28 [0.3.3 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.3.3) 已发布，发行源码提交 `d18ae139d9312433faa688ed49cc6f0081af2ec7`。[CI](https://github.com/zfyu222/obsb-tasks/actions/runs/40647819376) 通过 60 项测试、类型检查、构建和实际包检查。折叠控件参考 Enhancing Mindmap 改为实心／空心圆点，保留 MIT 来源说明，原 fork 未修改。浏览器验证鼠标点击及 Enter 展开，任务数量不变；三附件 SHA-256 与本地一致。BRAT 更新后重新加载，无需迁移，正式 vault 和客户端未改动。
