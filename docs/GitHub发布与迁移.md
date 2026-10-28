@@ -43,3 +43,5 @@
 2026-10-27 [0.2.1 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.2.1) 已发布，发行源码提交 `0bfc0cd6ea795cd59402725e1c943e27a465f921`。[CI](https://github.com/zfyu222/obsb-tasks/actions/runs/40494666198) 通过 46 项测试、类型检查、构建及实际 bundle 检查。完成时间由 ISO 文本改为本地日期时间选择器，新增上海／纽约时区往返保存和自动填写回归；三个附件下载 SHA-256 与本地构建一致。BRAT 更新后重新加载插件，旧任务格式兼容，实机仍待验收。
 
 2026-10-27 [0.3.0 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.3.0) 已发布，发行源码提交 `7a523d38dbdb8c3651d3e0bfde384dd9d95d26cc`。[CI](https://github.com/zfyu222/obsb-tasks/actions/runs/40498418928) 通过 57 项测试、类型检查、构建及实际发布包检查。数据改为可读 Markdown 树，原节点 ID、属性与注释保留；新增精确原文备份和逐文件迁移命令，并以同级位置修正移动子树的撤销。实际包验证迁移命令先保存草稿、产生新格式及原文备份；三个附件下载 SHA-256 与本地构建一致。所有设备先更新再迁移；原生搜索需排除格式备份目录，框架 AI 检索规则已更新。未直接迁移正式 vault，Windows／Android 与同步待实机验收。
+
+2026-10-28 [0.3.1 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.3.1) 已发布，发行源码提交 `620cd87d8e8c3fe005b97761e8d3c3212f168d25`。[CI](https://github.com/zfyu222/obsb-tasks/actions/runs/40646258392) 通过 59 项测试、类型检查、构建及实际包检查。导图改为 24px 单行节点、较小间距和优先级颜色，完成任务灰色删除线；适配层对提取布局增加首轮布局前间距配置，独立 fork 未修改。三个附件下载 SHA-256 与本地一致；实际包浏览器夹具验证优先级即时变色和完成样式，截图保存在本机 artifacts。BRAT 更新后重新加载，无需数据迁移；实机待验收。
