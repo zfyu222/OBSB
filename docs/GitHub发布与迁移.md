@@ -49,3 +49,5 @@
 2026-10-28 [0.3.2 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.3.2) 已发布，发行源码提交 `8247ec0541f9b2c7048afd887d1ed3e6b33b9740`。[CI](https://github.com/zfyu222/obsb-tasks/actions/runs/40646772246) 通过 59 项测试、类型检查、构建及实际包检查。领域名称移除方框前缀，使用主题灰色常规文字，几何宽度去除图标预留；任务颜色和数据格式不变。三附件下载 SHA-256 与本地一致，浏览器夹具已核对样式，BRAT 更新后重新加载即可，客户端未自动安装。
 
 2026-10-28 [0.3.3 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.3.3) 已发布，发行源码提交 `d18ae139d9312433faa688ed49cc6f0081af2ec7`。[CI](https://github.com/zfyu222/obsb-tasks/actions/runs/40647819376) 通过 60 项测试、类型检查、构建和实际包检查。折叠控件参考 Enhancing Mindmap 改为实心／空心圆点，保留 MIT 来源说明，原 fork 未修改。浏览器验证鼠标点击及 Enter 展开，任务数量不变；三附件 SHA-256 与本地一致。BRAT 更新后重新加载，无需迁移，正式 vault 和客户端未改动。
+
+2026-10-28 [0.3.4 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.3.4) 已发布，发行源码提交 `a8e97d59bcfbc22f4791c77477935bc0b1e635f4`。[CI](https://github.com/zfyu222/obsb-tasks/actions/runs/40676021117) 通过 64 项测试、类型检查、构建和实际发布包检查。修复点击其他节点或空白后名称输入框残留，失焦保存后只刷新当前节点；覆盖草稿失败保护、IME、Tab 新建后继续编辑及旧输入事件隔离。浏览器实际包验证长名称改名后鼠标切换目标及点击空白退出；三附件 SHA-256 与本地一致。数据格式未改，不需迁移，正式客户端未自动安装。
