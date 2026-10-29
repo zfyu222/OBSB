@@ -51,3 +51,5 @@
 2026-10-28 [0.3.3 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.3.3) 已发布，发行源码提交 `d18ae139d9312433faa688ed49cc6f0081af2ec7`。[CI](https://github.com/zfyu222/obsb-tasks/actions/runs/40647819376) 通过 60 项测试、类型检查、构建和实际包检查。折叠控件参考 Enhancing Mindmap 改为实心／空心圆点，保留 MIT 来源说明，原 fork 未修改。浏览器验证鼠标点击及 Enter 展开，任务数量不变；三附件 SHA-256 与本地一致。BRAT 更新后重新加载，无需迁移，正式 vault 和客户端未改动。
 
 2026-10-28 [0.3.4 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.3.4) 已发布，发行源码提交 `a8e97d59bcfbc22f4791c77477935bc0b1e635f4`。[CI](https://github.com/zfyu222/obsb-tasks/actions/runs/40676021117) 通过 64 项测试、类型检查、构建和实际发布包检查。修复点击其他节点或空白后名称输入框残留，失焦保存后只刷新当前节点；覆盖草稿失败保护、IME、Tab 新建后继续编辑及旧输入事件隔离。浏览器实际包验证长名称改名后鼠标切换目标及点击空白退出；三附件 SHA-256 与本地一致。数据格式未改，不需迁移，正式客户端未自动安装。
+
+2026-10-29 [0.3.5 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.3.5) 已发布，发行源码提交 `98863a46ca8ed6c17ba536f6f78eb7f0c7494984`。[CI](https://github.com/zfyu222/obsb-tasks/actions/runs/40814444316) 通过 68 项测试、类型检查、构建及实际包检查。增加指针跟随影像、落点轮廓／插入线、目标说明、非法位置提示和取消清理，最多克隆 5 个预览节点；参考 fork 的拖放交互并更新 MIT 来源说明，原 fork 未改动。实际包浏览器真实鼠标拖入领域、一次撤销通过，拖动中视觉由 fixture 可见回放核对；三附件下载 SHA-256 与本地一致。BRAT 更新后重新加载，无需数据迁移，正式客户端未安装。
