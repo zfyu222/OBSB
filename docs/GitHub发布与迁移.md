@@ -1,5 +1,7 @@
 # GitHub 单仓库发布与迁移
 
+2026-10-30 [0.3.9 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.3.9) 已发布，任务插件源码提交 `446020c9c7582f24b28179562c6342d11159185c`。[CI](https://github.com/zfyu222/obsb-tasks/actions/runs/41017431048) 通过 80 项测试、类型检查、构建和实际包检查；三附件下载 SHA-256 与本地一致。修复非法类型草稿反复拦截导航，并支持多选父子整组类型转换／撤销，失败全部不变；父节点及完成状态下拉增加事前校验。浏览器验证非法类型拒绝后的导航及多选，后续浏览器连接中断，整组转换／撤销由自动测试覆盖。BRAT 更新并重新加载后重开旧面板，无需迁移，正式客户端未安装。
+
 2026-10-29 [0.3.8 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.3.8) 已发布，任务插件源码提交 `4f84393a24cfaefd727a9ae8bb436dc6f6c22bf1`。[CI](https://github.com/zfyu222/obsb-tasks/actions/runs/40844029712) 通过 75 项测试、类型检查、构建和实际包检查；三附件下载 SHA-256 与本地一致。移除节点底边及导图核心文字基线，保留父子曲线、任务颜色和完成删除线；浏览器实际包外观已核对，BRAT 更新后重新加载即可，无需迁移，未安装正式客户端。
 
 2026-10-29 [0.3.7 Release](https://github.com/zfyu222/obsb-tasks/releases/tag/0.3.7) 已发布，任务插件发行源码提交 `0320bad1227a1558773ac3a3ad1f784ba9ca87d8`。[CI](https://github.com/zfyu222/obsb-tasks/actions/runs/40836802057) 通过 75 项测试、类型检查、构建和实际包检查，三个附件下载 SHA-256 与本地一致。原位编辑按草稿实时伸缩节点宽度，连线及后代同步布局，保留编辑框、光标和组合输入；不额外写文件，退出恢复紧凑展示。浏览器实际包验证伸缩、焦点和 Enter 保存，BRAT 更新后重新加载，无需迁移，未安装正式客户端。
