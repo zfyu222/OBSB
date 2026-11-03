@@ -1,6 +1,6 @@
 ---
 name: mindmap-plugin-maintenance
-description: 开发、排查、构建和发布 OBSB 项目维护的 obsidian-enhancing-mindmap fork；处理节点交互、Markdown 保存和 BRAT 更新，不用于普通笔记编辑或 AI 管家插件开发。
+description: 开发、排查、构建和发布 OBSB 项目维护的 obsidian-enhancing-mindmap fork；处理节点交互、多页签、Markdown 保存和 BRAT 更新，不用于普通笔记编辑或 AI 管家插件开发。
 ---
 
 # 思维导图插件维护

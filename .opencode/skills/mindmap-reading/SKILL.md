@@ -1,6 +1,6 @@
 ---
 name: mindmap-reading
-description: Read and interpret Enhancing Mindmap Markdown notes, including hierarchy, independent summary trees, shared member IDs, virtual grafted subtrees, directed relation lines, folding metadata, and escaped content. Use when answering, summarizing, or editing a mind map note, or when retrieved Markdown contains mm:node, mm:summaries, mm:grafts, or mm:relations markers. This is a note-reading skill, not plugin development or deployment.
+description: Read and interpret Enhancing Mindmap Markdown notes, including pages, hierarchy, independent summary trees, shared member IDs, virtual grafted subtrees, directed relation lines, folding metadata, and escaped content. Use when answering, summarizing, or editing a mind map note, or when retrieved Markdown contains mm:page, mm:node, mm:summaries, mm:grafts, or mm:relations markers. This is a note-reading skill, not plugin development or deployment.
 ---
 
 # 读取和理解思维导图
@@ -14,6 +14,15 @@ description: Read and interpret Enhancing Mindmap Markdown notes, including hier
 - 折叠是显示状态，不是内容删除。分析一个节点时，包含文件中保存的全部后代，而不只看图上当前可见的节点。
 - beta.39 起折叠仅保存在当前视图内，重新打开主树、概括及虚拟分支均默认展开；保存不再写主树的旧折叠后缀 `^id`、概括元数据的 `expanded` 或虚拟引用的 `folds`。旧笔记仍可能含这些字段，按历史显示信息理解，不据此省略内容；新文件缺少它们是正常情况。
 - YAML 属性与正文分开理解。保留 Obsidian 链接、别名、块引用及附件引用的含义；附件引用不代表已读取附件内容，遵循项目不读取附件的规则。
+
+## 多页签
+
+- 代码围栏外独立一行的 `<!-- mm:page {"id":"pg-1","name":"页面 1"} -->` 开始一个新页面，到下一个页面标记为止都属于该页；页面顺序就是页签顺序。`name` 是给人看的页签名，`id` 只用于页面身份。
+- 没有页面标记的文件是单页；单页文件保存时不会自动加标记。有标记时，标记前的正文属于第一页。
+- 各页是相互独立的导图：每页都有自己的根节点、子树、`mm:relations` 和概括子树区。不要把不同页面的分支合并成一棵树，也不要跨页配对父子关系；回答时按页签名称区分，例如“第 2 页（方案对比）里……”。
+- `mm:grafts` 仍是全文件唯一的一行，位于所有页面之后，`source` 和 `target` 可以属于不同页面。理解跨页嫁接时先按页面分别读出各自的正文，再按 ID 连接；来源页的正文不会在目标页重复出现。
+- `mm:relations` 与概括成员只在其所在页面内有效。节点 ID 在整份文件中唯一，跨页同名文字不代表同一节点，按 ID 判断。
+- 读到损坏或重复的页面标记时，说明无法拆分页面，按单页正文理解并保留原文，不猜测页面归属。
 
 ## 独立概括子树
 
