@@ -13,3 +13,4 @@ OpenCode `workspace` 的日常对话默认围绕 `vault/` 中的笔记：先搜�
 - 日常知识库任务只检索相关的 `vault/` Markdown，不预先读取 `docs/`、`deploy/`、`tools/`、`tests/` 或框架 Git 历史。只有用户明确讨论或开发知识库框架、部署、配置与运行机制时，才先读 `docs/框架开发入口.md`，再按其中索引读取所需文档。
 - 不修改 `.obsidian/`、`secrets/` 或二进制附件，除非用户明确要求且符合对应工作流。
 - 用户要求开发、排查或发布 Enhancing Mindmap / `obsidian-enhancing-mindmap` fork 时，先加载 `.opencode/skills/mindmap-plugin-maintenance/SKILL.md`；这是本项目维护范围，源码和 Release 在独立 fork 中。仅编辑思维导图对应的笔记仍走知识库 Skills，不加载插件开发资料。
+- 用户要求提交、推送或发布代码时，先加载 `.opencode/skills/plugin-release-routing/SKILL.md`，按改动路径判断属于主库、任务插件发行镜像还是思维导图 fork；不要把主库推送当作插件已交付，也不要声称未核验的 Release 已完成。
