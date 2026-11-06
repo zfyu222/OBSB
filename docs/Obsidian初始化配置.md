@@ -150,6 +150,8 @@
 
 ### OBSB AI 管家插件（0.2.2 构建，待两端验收）
 
+2026-11-02 操作权限：本项目在服务器 `/workspace/opencode.jsonc` 设置 `permissions` 中 `shell` / `*` 为 `allow`，自动执行普通 Shell 操作，不再逐次点击允许；已有明确 `deny` 规则继续生效。此项为服务器设置，Windows、Android 无需更新插件或分别设置。已备份并更新 NAS 配置，通过 `opencode reload --server http://127.0.0.1:4096` 重载；真实临时会话的 `printf`、`sed` 只读命令执行完成且无权限请求，测试会话已清理，客户端实机显示待验证。
+
 手机运行“打开 AI 管家”会在主区域标签页显示对话；旧版本的侧栏会自动转换。手机“附加笔记 / 命令”默认折叠，按需展开；桌面仍使用右侧栏。通过 BRAT 更新后重新启用插件再打开对话，不需要重新填写已有连接设置。
 
 按 [插件安装说明](../plugins/obsb-chat/README.md) 分别在 Windows、Android 的 `.obsidian/plugins/obsb-chat/` 安装三个程序文件，并在“设置 → 社区插件 → 已安装插件”启用“OBSB AI 管家”。不通过 LiveSync 传播插件程序和设置。

@@ -3,6 +3,7 @@
 .obsidian/workspace*.json
 .trash/
 vault/
+/vault
 bin/docker-compose
 artifacts/
 runtime/
